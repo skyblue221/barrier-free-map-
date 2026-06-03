@@ -29,7 +29,6 @@ const mapState = {
   provider: "",
   kakaoMap: null,
   kakaoGeocoder: null,
-  leafletMap: null,
 };
 
 const elements = {
@@ -78,7 +77,7 @@ elements.categorySelect.addEventListener("change", (event) => {
 elements.refreshButton.addEventListener("click", () => loadData(true));
 elements.exportButton.addEventListener("click", exportCsv);
 
-initMap().then(() => loadData());
+initMap().finally(() => loadData());
 
 function setFilter(filter) {
   state.filter = filter || "all";
@@ -94,47 +93,58 @@ function setFilter(filter) {
 }
 
 async function initMap() {
-  if (KAKAO_JAVASCRIPT_KEY) {
-    try {
-      await initKakaoMap();
-      return;
-    } catch (error) {
-      console.error(error);
-      elements.mapNote.textContent = "카카오 지도를 불러오지 못해 임시 지도로 표시합니다.";
-    }
+  if (!KAKAO_JAVASCRIPT_KEY) {
+    elements.mapNote.textContent = "카카오 JavaScript 키가 없습니다.";
+    return;
   }
 
-  initLeafletMap();
+  try {
+    elements.mapNote.textContent = "카카오 지도를 불러오는 중입니다.";
+    await initKakaoMap();
+  } catch (error) {
+    console.error(error);
+    elements.mapNote.textContent = error.message;
+  }
 }
 
 function initKakaoMap() {
   return new Promise((resolve, reject) => {
     const script = document.createElement("script");
+    const timeout = window.setTimeout(() => {
+      reject(new Error(`카카오 지도 응답 시간이 초과되었습니다. 등록 도메인과 현재 주소(${window.location.origin})를 확인해주세요.`));
+    }, 8000);
+
+    const fail = (error) => {
+      window.clearTimeout(timeout);
+      reject(error);
+    };
+
     script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${encodeURIComponent(KAKAO_JAVASCRIPT_KEY)}&libraries=services&autoload=false`;
     script.onload = () => {
-      kakao.maps.load(() => {
-        const center = new kakao.maps.LatLng(SEOUL_CENTER.lat, SEOUL_CENTER.lng);
-        mapState.kakaoMap = new kakao.maps.Map(document.querySelector("#map"), {
-          center,
-          level: 5,
+      try {
+        if (!window.kakao?.maps) {
+          fail(new Error(`카카오 지도 인증에 실패했습니다. 카카오 개발자 콘솔의 Web 도메인에 ${window.location.origin} 이 등록되어 있는지 확인해주세요.`));
+          return;
+        }
+
+        kakao.maps.load(() => {
+          window.clearTimeout(timeout);
+          const center = new kakao.maps.LatLng(SEOUL_CENTER.lat, SEOUL_CENTER.lng);
+          mapState.kakaoMap = new kakao.maps.Map(document.querySelector("#map"), {
+            center,
+            level: 5,
+          });
+          mapState.kakaoGeocoder = new kakao.maps.services.Geocoder();
+          mapState.provider = "kakao";
+          resolve();
         });
-        mapState.kakaoGeocoder = new kakao.maps.services.Geocoder();
-        mapState.provider = "kakao";
-        resolve();
-      });
+      } catch (error) {
+        fail(error);
+      }
     };
-    script.onerror = () => reject(new Error("Kakao map SDK failed"));
+    script.onerror = () => fail(new Error(`카카오 지도 SDK를 불러오지 못했습니다. 등록 도메인과 현재 주소(${window.location.origin})를 확인해주세요.`));
     document.head.append(script);
   });
-}
-
-function initLeafletMap() {
-  mapState.provider = "leaflet";
-  mapState.leafletMap = L.map("map", { zoomControl: true }).setView([SEOUL_CENTER.lat, SEOUL_CENTER.lng], 14);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-  }).addTo(mapState.leafletMap);
 }
 
 async function loadData(forceRefresh = false) {
@@ -371,21 +381,18 @@ function renderMarkers() {
 function createMarker(shop) {
   if (mapState.provider === "kakao") {
     const position = new kakao.maps.LatLng(shop.lat, shop.lng);
-    const marker = new kakao.maps.Marker({ map: mapState.kakaoMap, position });
+    const markerNode = markerElement(shop);
+    const marker = new kakao.maps.CustomOverlay({
+      map: mapState.kakaoMap,
+      position,
+      content: markerNode,
+      yAnchor: 1,
+    });
     const infowindow = new kakao.maps.InfoWindow({ content: popupHtml(shop) });
-    kakao.maps.event.addListener(marker, "click", () => infowindow.open(mapState.kakaoMap, marker));
+    markerNode.addEventListener("click", () => infowindow.open(mapState.kakaoMap, marker));
     return { marker, infowindow };
   }
-
-  const marker = L.circleMarker([shop.lat, shop.lng], {
-    radius: 9,
-    color: markerColor(shop),
-    fillColor: markerColor(shop),
-    fillOpacity: 0.82,
-    weight: 2,
-  }).addTo(mapState.leafletMap);
-  marker.bindPopup(popupHtml(shop));
-  return marker;
+  return null;
 }
 
 function removeMarker(marker) {
@@ -394,8 +401,6 @@ function removeMarker(marker) {
     marker.marker.setMap(null);
     return;
   }
-
-  marker.remove();
 }
 
 async function geocodeVisibleShops() {
@@ -422,7 +427,6 @@ async function geocodeVisibleShops() {
         state.geocodeCache[cacheKey] = result;
         saveGeoCache(state.geocodeCache);
       }
-      if (mapState.provider !== "kakao") await wait(1100);
     }
     completed += 1;
     elements.mapNote.textContent = `주소 좌표를 확인하는 중입니다. ${completed}/${queue.length}`;
@@ -437,7 +441,7 @@ async function geocode(address) {
     return geocodeWithKakao(address);
   }
 
-  return geocodeWithNominatim(address);
+  return null;
 }
 
 function geocodeWithKakao(address) {
@@ -453,26 +457,12 @@ function geocodeWithKakao(address) {
   });
 }
 
-async function geocodeWithNominatim(address) {
-  const fullAddress = address.includes("서울") ? address : `서울 ${address}`;
-  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=kr&q=${encodeURIComponent(fullAddress)}`;
-  try {
-    const response = await fetch(url, { headers: { "Accept-Language": "ko" } });
-    if (!response.ok) return null;
-    const data = await response.json();
-    if (!data[0]) return null;
-    return { lat: Number(data[0].lat), lng: Number(data[0].lon) };
-  } catch {
-    return null;
-  }
-}
-
 function updateMapNote() {
   const located = state.filtered.filter((shop) => shop.lat && shop.lng);
   fitMapToVisibleMarkers(located);
 
   const missing = state.filtered.length - located.length;
-  const providerLabel = mapState.provider === "kakao" ? "카카오 지도" : "임시 지도";
+  const providerLabel = mapState.provider === "kakao" ? "카카오 지도" : "카카오 지도 미연결";
   elements.mapNote.textContent = missing > 0 ? `${providerLabel} 표시 ${located.length}곳 · 주소 확인 필요 ${missing}곳` : `${providerLabel} 표시 ${located.length}곳`;
 }
 
@@ -485,9 +475,6 @@ function fitMapToVisibleMarkers(located) {
     mapState.kakaoMap.setBounds(bounds);
     return;
   }
-
-  const group = L.featureGroup([...state.markers.values()]);
-  if (group.getLayers().length > 0) mapState.leafletMap.fitBounds(group.getBounds().pad(0.18));
 }
 
 function focusShop(shop) {
@@ -501,9 +488,6 @@ function focusShop(shop) {
     marker.infowindow.open(mapState.kakaoMap, marker.marker);
     return;
   }
-
-  mapState.leafletMap.setView(marker.getLatLng(), 17);
-  marker.openPopup();
 }
 
 function tagNodes(shop) {
@@ -520,11 +504,18 @@ function tagNodes(shop) {
 
 function detailHtml(shop) {
   return [
-    rowHtml("경사로", shop.ramp ? [shop.rampYear ? `${shop.rampYear} 설치` : ""].filter(Boolean).join(" · ") || "있음" : ""),
-    rowHtml("점자메뉴판", shop.braille ? [shop.brailleYear ? `${shop.brailleYear} 보급` : ""].filter(Boolean).join(" · ") || "있음" : ""),
-    rowHtml("공개 메모", shop.publicMemo),
-    rowHtml("자료", shop.sourceTypes.join(", ")),
+    rowHtml("이용 가능", serviceLabel(shop)),
+    rowHtml("안내", publicGuideMemo(shop.publicMemo)),
   ].filter(Boolean).join("");
+}
+
+function markerElement(shop) {
+  const button = document.createElement("button");
+  button.className = `map-marker ${markerClass(shop)}`;
+  button.type = "button";
+  button.setAttribute("aria-label", shop.name);
+  button.innerHTML = `<span>${markerSymbol(shop)}</span>`;
+  return button;
 }
 
 function popupHtml(shop) {
@@ -538,6 +529,32 @@ function popupHtml(shop) {
 function rowHtml(label, value) {
   if (!value) return "";
   return `<p><strong>${escapeHtml(label)}</strong> ${escapeHtml(value)}</p>`;
+}
+
+function serviceLabel(shop) {
+  if (shop.ramp && shop.braille) return "경사로, 점자메뉴판";
+  if (shop.ramp) return "경사로";
+  if (shop.braille) return "점자메뉴판";
+  return "";
+}
+
+function publicGuideMemo(value) {
+  const memo = String(value || "").trim();
+  if (!memo) return "";
+  if (/보급 상점|설치 건|설치 이력|기존 보급/i.test(memo)) return "";
+  return memo;
+}
+
+function markerClass(shop) {
+  if (shop.ramp && shop.braille) return "both";
+  if (shop.braille) return "braille";
+  return "ramp";
+}
+
+function markerSymbol(shop) {
+  if (shop.ramp && shop.braille) return "둘";
+  if (shop.braille) return "점";
+  return "경";
 }
 
 function exportCsv() {
@@ -560,12 +577,6 @@ function exportCsv() {
   link.download = "barrier-free-shops.csv";
   link.click();
   URL.revokeObjectURL(link.href);
-}
-
-function markerColor(shop) {
-  if (shop.ramp && shop.braille) return "#7c3aed";
-  if (shop.braille) return "#2563eb";
-  return "#16825d";
 }
 
 function scheduleGeocode() {

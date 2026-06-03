@@ -382,7 +382,45 @@ select {
   display: block;
 }
 
-.leaflet-popup-content {
+.map-marker {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 2px solid #fff;
+  border-radius: 999px 999px 999px 4px;
+  box-shadow: 0 8px 18px rgba(31, 41, 51, 0.28);
+  color: #fff;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  transform: rotate(-45deg);
+}
+
+.map-marker span {
+  transform: rotate(45deg);
+}
+
+.map-marker.ramp {
+  background: var(--green);
+}
+
+.map-marker.braille {
+  background: var(--blue);
+}
+
+.map-marker.both {
+  background: #7c3aed;
+}
+
+.map-marker:hover,
+.map-marker:focus-visible {
+  outline: 3px solid rgba(22, 130, 93, 0.22);
+}
+
+.leaflet-popup-content,
+.wrap .info {
   min-width: 220px;
   line-height: 1.5;
 }
