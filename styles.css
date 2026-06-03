@@ -398,10 +398,6 @@ select {
   transform: rotate(-45deg);
 }
 
-.map-marker span {
-  transform: rotate(45deg);
-}
-
 .map-marker.ramp {
   background: var(--green);
 }

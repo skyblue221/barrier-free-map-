@@ -514,7 +514,6 @@ function markerElement(shop) {
   button.className = `map-marker ${markerClass(shop)}`;
   button.type = "button";
   button.setAttribute("aria-label", shop.name);
-  button.innerHTML = `<span>${markerSymbol(shop)}</span>`;
   return button;
 }
 
@@ -549,12 +548,6 @@ function markerClass(shop) {
   if (shop.ramp && shop.braille) return "both";
   if (shop.braille) return "braille";
   return "ramp";
-}
-
-function markerSymbol(shop) {
-  if (shop.ramp && shop.braille) return "둘";
-  if (shop.braille) return "점";
-  return "경";
 }
 
 function exportCsv() {
