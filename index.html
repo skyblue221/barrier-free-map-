@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>배리어프리 가게 안내 지도</title>
+    <link rel="preconnect" href="https://unpkg.com" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Barrier-free shop map</p>
+        <h1>배리어프리 가게 안내 지도</h1>
+      </div>
+      <div class="header-actions">
+        <button class="icon-button" id="refreshButton" type="button" title="시트 다시 불러오기" aria-label="시트 다시 불러오기">
+          <span aria-hidden="true">↻</span>
+        </button>
+        <button class="text-button" id="exportButton" type="button">CSV 내보내기</button>
+      </div>
+    </header>
+
+    <main class="app-shell">
+      <section class="toolbar" aria-label="지도 필터">
+        <label class="search-field">
+          <span>검색</span>
+          <input id="searchInput" type="search" placeholder="상호명, 주소, 지역" autocomplete="off" />
+        </label>
+        <div class="segmented" role="group" aria-label="표시 항목">
+          <button class="segment active" type="button" data-filter="all">전체</button>
+          <button class="segment" type="button" data-filter="ramp">경사로</button>
+          <button class="segment" type="button" data-filter="braille">점자메뉴판</button>
+          <button class="segment" type="button" data-filter="both">둘 다</button>
+        </div>
+        <label class="select-field">
+          <span>지역</span>
+          <select id="regionSelect">
+            <option value="">전체 지역</option>
+          </select>
+        </label>
+        <label class="select-field">
+          <span>업종</span>
+          <select id="categorySelect">
+            <option value="">전체 업종</option>
+          </select>
+        </label>
+      </section>
+
+      <section class="stats" aria-label="현황 요약">
+        <button class="stat-card active" type="button" data-filter="all" aria-pressed="true">
+          <span id="totalCount">0</span>
+          <p>전체</p>
+        </button>
+        <button class="stat-card" type="button" data-filter="ramp" aria-pressed="false">
+          <span id="rampCount">0</span>
+          <p>경사로</p>
+        </button>
+        <button class="stat-card" type="button" data-filter="braille" aria-pressed="false">
+          <span id="brailleCount">0</span>
+          <p>점자메뉴판</p>
+        </button>
+        <button class="stat-card" type="button" data-filter="both" aria-pressed="false">
+          <span id="bothCount">0</span>
+          <p>둘 다</p>
+        </button>
+      </section>
+
+      <section class="content">
+        <div class="map-wrap">
+          <div id="map" aria-label="배리어프리 가게 지도"></div>
+          <p class="map-note" id="mapNote">시트와 지도를 불러오는 중입니다.</p>
+        </div>
+        <aside class="side-panel" aria-label="가게 목록">
+          <div class="panel-head">
+            <h2>가게 목록</h2>
+            <span id="visibleCount">0곳</span>
+          </div>
+          <div class="legend" aria-label="범례">
+            <span><i class="dot ramp"></i>경사로</span>
+            <span><i class="dot braille"></i>점자</span>
+            <span><i class="dot both"></i>둘 다</span>
+          </div>
+          <div id="shopList" class="shop-list"></div>
+        </aside>
+      </section>
+    </main>
+
+    <template id="shopTemplate">
+      <article class="shop-card">
+        <button class="shop-main" type="button">
+          <span class="shop-name"></span>
+          <span class="shop-tags"></span>
+          <span class="shop-address"></span>
+        </button>
+        <div class="shop-detail"></div>
+      </article>
+    </template>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
