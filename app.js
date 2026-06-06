@@ -16,13 +16,11 @@ const state = {
   shops: [],
   filtered: [],
   markers: new Map(),
-  geocodeCache: loadGeoCache(),
   filter: "all",
   search: "",
   region: "",
   category: "",
-  geocodeRunId: 0,
-  geocodeTimer: null,
+
 };
 
 const mapState = {
@@ -149,10 +147,6 @@ function initKakaoMap() {
 
 async function loadData(forceRefresh = false) {
   elements.mapNote.textContent = "Google Sheets 데이터를 불러오는 중입니다.";
-  if (forceRefresh) {
-    state.geocodeCache = loadGeoCache();
-  }
-
   try {
     const unifiedRows = await readSheet(SOURCES.mapUnified);
     state.shops = rowsFromUnifiedMap(unifiedRows);
@@ -373,9 +367,34 @@ function renderMarkers() {
   }
 
   state.filtered.forEach((shop) => {
-    if (!shop.lat || !shop.lng || state.markers.has(shop.id)) return;
-    state.markers.set(shop.id, createMarker(shop));
+    if (state.markers.has(shop.id)) return;
+    if (shop.lat && shop.lng) {
+      // 좌표 있으면 바로 핀
+      state.markers.set(shop.id, createMarker(shop));
+    } else if (shop.address && mapState.kakaoGeocoder) {
+      // 주소로 카카오 검색해서 핀
+      const fullAddr = normalizeSearchAddress(shop.address);
+      mapState.kakaoGeocoder.addressSearch(fullAddr, (result, status) => {
+        if (status === kakao.maps.services.Status.OK && result[0]) {
+          shop.lat = Number(result[0].y);
+          shop.lng = Number(result[0].x);
+          if (!state.markers.has(shop.id)) {
+            state.markers.set(shop.id, createMarker(shop));
+          }
+        }
+      });
+    }
   });
+}
+
+function normalizeSearchAddress(address) {
+  // 서울 종로구 prefix 보장
+  let addr = address
+    .replace(/^서울특별시\s*/, '')
+    .replace(/^서울시\s*/, '')
+    .replace(/^서울\s*/, '')
+    .replace(/^종로구\s*/, '');
+  return '서울 종로구 ' + addr;
 }
 
 function createMarker(shop) {
@@ -402,69 +421,18 @@ function removeMarker(marker) {
   }
 }
 
-async function geocodeVisibleShops() {
-  const runId = ++state.geocodeRunId;
-  const queue = state.filtered.filter((shop) => !shop.lat && shop.address).slice(0, 120);
-  let completed = 0;
 
-  if (queue.length === 0) {
-    updateMapNote();
-    return;
-  }
 
-  for (const shop of queue) {
-    if (runId !== state.geocodeRunId) return;
-    const cacheKey = `${mapState.provider}:${shop.address}`;
-    const cached = state.geocodeCache[cacheKey];
-    if (cached) {
-      Object.assign(shop, cached);
-    } else {
-      const result = await geocode(shop.address);
-      if (result) {
-        shop.lat = result.lat;
-        shop.lng = result.lng;
-        state.geocodeCache[cacheKey] = result;
-        saveGeoCache(state.geocodeCache);
-      }
-    }
-    completed += 1;
-    elements.mapNote.textContent = `주소 좌표를 확인하는 중입니다. ${completed}/${queue.length}`;
-    renderMarkers();
-  }
 
-  updateMapNote();
-}
 
-async function geocode(address) {
-  if (mapState.provider === "kakao") {
-    return geocodeWithKakao(address);
-  }
-  return null;
-}
 
-function geocodeWithKakao(address) {
-  // 서울 종로구 prefix 보장
-  let fullAddress = address;
-  if (!address.includes("종로구")) fullAddress = "서울 종로구 " + address.replace(/^서울특별시\s*|^서울시\s*|^서울\s*/, "").replace(/^종로구\s*/, "");
-  return new Promise((resolve) => {
-    mapState.kakaoGeocoder.addressSearch(fullAddress, (result, status) => {
-      if (status !== kakao.maps.services.Status.OK || !result[0]) {
-        resolve(null);
-        return;
-      }
-      resolve({ lat: Number(result[0].y), lng: Number(result[0].x) });
-    });
-  });
-}
 
 function updateMapNote() {
   const located = state.filtered.filter((shop) => shop.lat && shop.lng);
-  fitMapToVisibleMarkers(located);
   const missing = state.filtered.length - located.length;
-  const providerLabel = mapState.provider === "kakao" ? "카카오 지도" : "카카오 지도 미연결";
   elements.mapNote.textContent = missing > 0
-    ? `${providerLabel} 표시 ${located.length}곳 · 주소 확인 필요 ${missing}곳`
-    : `${providerLabel} 표시 ${located.length}곳`;
+    ? `카카오 지도 표시 ${located.length}곳 · 위치 확인 중 ${missing}곳`
+    : `카카오 지도 표시 ${located.length}곳`;
 }
 
 function fitMapToVisibleMarkers(located) {
@@ -564,10 +532,7 @@ function exportCsv() {
   URL.revokeObjectURL(link.href);
 }
 
-function scheduleGeocode() {
-  window.clearTimeout(state.geocodeTimer);
-  state.geocodeTimer = window.setTimeout(() => geocodeVisibleShops(), 250);
-}
+function scheduleGeocode() {}
 
 function normalizeText(value) {
   return String(value || "").replace(/\s+/g, "").toLowerCase();
@@ -620,11 +585,4 @@ function unique(values) {
   return [...new Set(values)];
 }
 
-function loadGeoCache() {
-  try { return JSON.parse(localStorage.getItem(GEO_CACHE_KEY) || "{}"); }
-  catch { return {}; }
-}
 
-function saveGeoCache(cache) {
-  localStorage.setItem(GEO_CACHE_KEY, JSON.stringify(cache));
-}
