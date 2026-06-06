@@ -6,27 +6,7 @@
 <title>우리 동네 배리어프리 지도 | 종로구</title>
 
 <!-- 카카오맵 SDK: 80997111825554ef64ddb0481b4c0a76 를 실제 키로 교체하세요 -->
-<script type="text/javascript"
-  src="//dapi.kakao.com/v2/maps/sdk.js?appkey=80997111825554ef64ddb0481b4c0a76&libraries=services">
-function updateFilterCounts() {
-  const base = currentMode === 'public'
-    ? allData.filter(p => p.status === '공개 가능')
-    : allData;
-  const counts = {
-    all:     base.length,
-    ramp:    base.filter(p => p.hasRamp).length,
-    braille: base.filter(p => p.hasBraille).length,
-    both:    base.filter(p => p.hasRamp && p.hasBraille).length,
-  };
-  const labels = { all:'전체', ramp:'♿ 경사로', braille:'⠿ 점자메뉴판', both:'✦ 둘 다' };
-  const ids = { all:'chip-all', ramp:'chip-ramp', braille:'chip-braille', both:'chip-both' };
-  Object.keys(counts).forEach(k => {
-    const el = document.getElementById(ids[k]);
-    if (el) el.textContent = labels[k] + ' ' + counts[k];
-  });
-}
-
-</script>
+<script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=80997111825554ef64ddb0481b4c0a76&libraries=services"></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=Noto+Serif+KR:wght@600;700&display=swap" rel="stylesheet">
@@ -145,6 +125,16 @@ input, select { font-family: var(--font); }
   display: flex; justify-content: space-between; align-items: center;
 }
 #place-list { flex: 1; overflow-y: auto; }
+#map-footer {
+  padding: 12px 16px 14px;
+  border-top: 1px solid var(--gray-100);
+  color: var(--gray-600);
+  font-size: 12px;
+  line-height: 1.55;
+  background: #fff;
+  flex-shrink: 0;
+}
+#map-footer a { color: var(--green); font-weight: 800; text-decoration: underline; }
 #place-list::-webkit-scrollbar { width: 4px; }
 #place-list::-webkit-scrollbar-thumb { background: var(--gray-200); border-radius: 2px; }
 
@@ -375,6 +365,10 @@ input, select { font-family: var(--font); }
 
       <!-- 목록 -->
       <div id="place-list"></div>
+      <div id="map-footer">
+        <p>종로장애인복지관 일상동행팀 - ?? <a href="tel:0263957051">02-6395-7051</a></p>
+        <p>데이터는 정기적으로 현장 모니터링을 통해 업데이트됩니다.</p>
+      </div>
     </div>
 
     <!-- 지도 -->
@@ -472,6 +466,24 @@ let overlays      = [];
 let geocoder      = null;
 let panelOpen     = true;
 
+
+function updateFilterCounts() {
+  const base = currentMode === 'public'
+    ? allData.filter(p => p.status === '공개 가능')
+    : allData;
+  const counts = {
+    all:     base.length,
+    ramp:    base.filter(p => p.hasRamp).length,
+    braille: base.filter(p => p.hasBraille).length,
+    both:    base.filter(p => p.hasRamp && p.hasBraille).length,
+  };
+  const labels = { all:'전체', ramp:'경사로', braille:'점자메뉴판', both:'둘 다' };
+  const ids = { all:'chip-all', ramp:'chip-ramp', braille:'chip-braille', both:'chip-both' };
+  Object.keys(counts).forEach(k => {
+    const el = document.getElementById(ids[k]);
+    if (el) el.textContent = labels[k] + ' ' + counts[k];
+  });
+}
 // ══════════════════════════════════════════════════════════
 // 업종별 이모지
 // ══════════════════════════════════════════════════════════
@@ -538,8 +550,8 @@ function parseSheetData(rows) {
     status:     r[idx('상태')]      || '',
     memo:       r[idx('공개 메모')] || '',
     internalMemo: r[idx('내부 검토 메모')] || '',
-    lat: parseFloat(r[idx('위도')]) || 0,
-    lng: parseFloat(r[idx('경도')]) || 0,
+    lat: 0,
+    lng: 0,
     source:     r[idx('원본 구분')] || '',
   })).filter(r => r.name);
 }
@@ -568,76 +580,53 @@ function initMap() {
 // ══════════════════════════════════════════════════════════
 function renderMarkers() {
   if (!map) return;
-  // 기존 마커 제거
   markers.forEach(m => m.setMap(null));
   overlays.forEach(o => o.setMap(null));
-  markers = []; overlays = [];
+  markers = [];
+  overlays = [];
 
-  const toShow = filtered.filter(p => p.lat && p.lng);
+  filtered.filter(p => p.address).forEach(place => geocodePlace(place));
+}
 
-  toShow.forEach(place => {
-    const pos = new kakao.maps.LatLng(place.lat, place.lng);
-    const color = place.hasRamp && place.hasBraille ? '#1A5C47' :
-                  place.hasRamp ? '#2E8B6A' : '#3A7BD5';
-
-    // 커스텀 오버레이 (마커 대신)
-    const content = `
-      <div style="
-        background:${color}; color:#fff; padding:4px 10px;
-        border-radius:20px; font-size:11px; font-weight:700;
-        box-shadow:0 2px 8px rgba(0,0,0,.2); white-space:nowrap;
-        cursor:pointer; font-family:'Noto Sans KR',sans-serif;
-        transform:translate(-50%,-100%); position:relative;
-      " onclick="selectPlace(${place.id})">
-        ${getEmoji(place.type)} ${place.name}
-      </div>`;
-
-    const overlay = new kakao.maps.CustomOverlay({
-      position: pos, content, yAnchor: 1,
-    });
-    overlay.setMap(map);
-    overlays.push(overlay);
-  });
-
-  // 좌표 없는 항목 주소 지오코딩 (최대 10개씩)
-  const noCoord = filtered.filter(p => !p.lat || !p.lng).slice(0, 10);
-  noCoord.forEach(place => geocodePlace(place));
+function addPlaceOverlay(place) {
+  const pos = new kakao.maps.LatLng(place.lat, place.lng);
+  const color = place.hasRamp && place.hasBraille ? '#7C3AED' :
+                place.hasRamp ? '#2E8B6A' : '#3A7BD5';
+  const content = `
+    <div style="
+      background:${color}; color:#fff; padding:4px 10px;
+      border-radius:20px; font-size:11px; font-weight:700;
+      box-shadow:0 2px 8px rgba(0,0,0,.2); white-space:nowrap;
+      cursor:pointer; font-family:'Noto Sans KR',sans-serif;
+      transform:translate(-50%,-100%); position:relative;
+    " onclick="selectPlace(${place.id})">
+      ${getEmoji(place.type)} ${place.name}
+    </div>`;
+  const overlay = new kakao.maps.CustomOverlay({ position: pos, content, yAnchor: 1 });
+  overlay.setMap(map);
+  overlays.push(overlay);
 }
 
 function geocodePlace(place) {
-  if (!geocoder) return;
+  if (!geocoder || !place.address) return;
   const rawAddr = place.address
-    .replace(/^서울특별시 */g, '').replace(/^서울시 */g, '').replace(/^서울 */g, '')
-    .replace(/^종로구 */g, '');
+    .replace(/^서울특별시\s*/g, '')
+    .replace(/^서울시\s*/g, '')
+    .replace(/^서울\s*/g, '')
+    .replace(/^종로구\s*/g, '')
+    .trim();
   const searchAddr = '서울 종로구 ' + rawAddr;
   geocoder.addressSearch(searchAddr, (result, status) => {
-    if (status === kakao.maps.services.Status.OK) {
-      place.lat = parseFloat(result[0].y);
-      place.lng = parseFloat(result[0].x);
-      // 업데이트 후 오버레이 추가
-      const pos = new kakao.maps.LatLng(place.lat, place.lng);
-      const color = place.hasRamp && place.hasBraille ? '#1A5C47' :
-                    place.hasRamp ? '#2E8B6A' : '#3A7BD5';
-      const content = `
-        <div style="
-          background:${color}; color:#fff; padding:4px 10px;
-          border-radius:20px; font-size:11px; font-weight:700;
-          box-shadow:0 2px 8px rgba(0,0,0,.2); white-space:nowrap;
-          cursor:pointer; font-family:'Noto Sans KR',sans-serif;
-          transform:translate(-50%,-100%); position:relative;
-        " onclick="selectPlace(${place.id})">
-          ${getEmoji(place.type)} ${place.name}
-        </div>`;
-      const overlay = new kakao.maps.CustomOverlay({ position: pos, content, yAnchor: 1 });
-      overlay.setMap(map);
-      overlays.push(overlay);
-    }
+    if (status !== kakao.maps.services.Status.OK || !result[0]) return;
+    place.lat = parseFloat(result[0].y);
+    place.lng = parseFloat(result[0].x);
+    addPlaceOverlay(place);
   });
 }
 
-// ══════════════════════════════════════════════════════════
-// 검색 & 필터
-// ══════════════════════════════════════════════════════════
+// ??????????????????????????????????????????????????????????
+// ?? & ??
+// ??????????????????????????????????????????????????????????
 function onSearch() {
   const q       = document.getElementById('search-input').value.trim().toLowerCase();
   const region  = document.getElementById('region-select').value;
@@ -761,9 +750,13 @@ function selectPlace(id) {
   }
 
   // 지도 이동
-  if (map && p.lat && p.lng) {
-    map.setCenter(new kakao.maps.LatLng(p.lat, p.lng));
-    map.setLevel(4);
+  if (map) {
+    if (p.lat && p.lng) {
+      map.setCenter(new kakao.maps.LatLng(p.lat, p.lng));
+      map.setLevel(4);
+    } else {
+      geocodePlace(p);
+    }
   }
 
   showDetail(p);
