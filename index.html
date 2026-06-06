@@ -1,115 +1,876 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ko">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>배리어프리 가게 안내 지도 | 종로구</title>
-    <meta name="description" content="종로구 배리어프리 가게 안내 지도 — 경사로, 점자메뉴판이 있는 가게를 찾아보세요." />
-    <link rel="stylesheet" href="./styles.css" />
-  </head>
-  <body>
-    <header class="app-header">
-      <div class="header-title">
-        <p class="eyebrow">Barrier-free shop map · 종로구</p>
-        <h1>배리어프리 가게 안내 지도</h1>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>우리 동네 배리어프리 지도 | 종로구</title>
+
+<!-- 카카오맵 SDK: YOUR_KAKAO_APP_KEY 를 실제 키로 교체하세요 -->
+<script type="text/javascript"
+  src="//dapi.kakao.com/v2/maps/sdk.js?appkey=YOUR_KAKAO_APP_KEY&libraries=services"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=Noto+Serif+KR:wght@600;700&display=swap" rel="stylesheet">
+
+<style>
+/* ── 리셋 & 변수 ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --green:   #2E8B6A;
+  --green-l: #E6F4EF;
+  --green-d: #1A5C47;
+  --blue:    #3A7BD5;
+  --blue-l:  #EBF2FC;
+  --amber:   #D97706;
+  --amber-l: #FEF3C7;
+  --red:     #DC2626;
+  --gray-50: #F8FAFB;
+  --gray-100:#F0F4F7;
+  --gray-200:#E2E8F0;
+  --gray-400:#94A3B8;
+  --gray-600:#475569;
+  --gray-800:#1E293B;
+  --shadow-sm: 0 1px 4px rgba(0,0,0,.08);
+  --shadow:    0 4px 16px rgba(0,0,0,.10);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,.14);
+  --radius: 12px;
+  --font: 'Noto Sans KR', sans-serif;
+  --serif: 'Noto Serif KR', serif;
+}
+html, body { height: 100%; font-family: var(--font); color: var(--gray-800); background: var(--gray-50); }
+button { cursor: pointer; border: none; background: none; font-family: var(--font); }
+input, select { font-family: var(--font); }
+
+/* ── 레이아웃 ── */
+#app { display: flex; flex-direction: column; height: 100vh; }
+
+/* ── 헤더 ── */
+#header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 0 20px; height: 56px;
+  background: #fff; border-bottom: 1px solid var(--gray-200);
+  box-shadow: var(--shadow-sm); z-index: 200; flex-shrink: 0;
+}
+#header .logo { display: flex; align-items: center; gap: 8px; }
+#header .logo-icon {
+  width: 32px; height: 32px; border-radius: 8px;
+  background: var(--green); display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+}
+#header .logo-text { font-size: 15px; font-weight: 700; color: var(--gray-800); }
+#header .logo-sub { font-size: 11px; color: var(--gray-400); margin-top: 1px; }
+.header-spacer { flex: 1; }
+
+/* 모드 토글 */
+#mode-toggle {
+  display: flex; background: var(--gray-100); border-radius: 8px; padding: 3px; gap: 2px;
+}
+#mode-toggle button {
+  padding: 5px 14px; border-radius: 6px; font-size: 12px; font-weight: 600;
+  color: var(--gray-600); transition: all .18s;
+}
+#mode-toggle button.active {
+  background: #fff; color: var(--green); box-shadow: var(--shadow-sm);
+}
+
+/* ── 바디 ── */
+#body { display: flex; flex: 1; overflow: hidden; }
+
+/* ── 사이드패널 ── */
+#side-panel {
+  width: 340px; flex-shrink: 0; background: #fff;
+  border-right: 1px solid var(--gray-200);
+  display: flex; flex-direction: column; overflow: hidden;
+  transition: width .25s; z-index: 100;
+}
+#side-panel.collapsed { width: 0; }
+
+/* 검색/필터 영역 */
+#search-area { padding: 14px 16px; border-bottom: 1px solid var(--gray-100); flex-shrink: 0; }
+#search-box {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--gray-50); border: 1.5px solid var(--gray-200);
+  border-radius: 10px; padding: 8px 12px; margin-bottom: 10px;
+  transition: border-color .15s;
+}
+#search-box:focus-within { border-color: var(--green); }
+#search-box input {
+  flex: 1; border: none; background: none; font-size: 14px; outline: none; color: var(--gray-800);
+}
+#search-box input::placeholder { color: var(--gray-400); }
+
+.filter-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.filter-chip {
+  padding: 5px 14px; border-radius: 20px; font-size: 13px; font-weight: 600;
+  border: 1.5px solid var(--gray-200); color: var(--gray-600); background: #fff;
+  transition: all .15s; white-space: nowrap;
+}
+.filter-chip.active-ramp  { border-color: var(--green); color: var(--green); background: var(--green-l); }
+.filter-chip.active-braille { border-color: var(--blue); color: var(--blue); background: var(--blue-l); }
+.filter-chip.active-all   { border-color: var(--gray-800); color: var(--gray-800); background: var(--gray-100); }
+
+/* 지역 필터 */
+#region-filter { padding: 0 16px 10px; flex-shrink: 0; }
+#region-select {
+  width: 100%; padding: 7px 10px; border: 1.5px solid var(--gray-200);
+  border-radius: 8px; font-size: 13px; color: var(--gray-800); outline: none;
+  background: #fff; transition: border-color .15s;
+}
+#region-select:focus { border-color: var(--green); }
+
+/* 목록 */
+#list-header {
+  padding: 10px 16px; font-size: 12px; font-weight: 700; color: var(--gray-400);
+  letter-spacing: .06em; text-transform: uppercase; flex-shrink: 0;
+  border-bottom: 1px solid var(--gray-100);
+  display: flex; justify-content: space-between; align-items: center;
+}
+#place-list { flex: 1; overflow-y: auto; }
+#place-list::-webkit-scrollbar { width: 4px; }
+#place-list::-webkit-scrollbar-thumb { background: var(--gray-200); border-radius: 2px; }
+
+.place-item {
+  padding: 14px 16px; border-bottom: 1px solid var(--gray-100);
+  cursor: pointer; transition: background .12s; display: flex; gap: 10px; align-items: flex-start;
+}
+.place-item:hover { background: var(--gray-50); }
+.place-item.selected { background: var(--green-l); }
+.place-item .place-icon {
+  width: 36px; height: 36px; border-radius: 8px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 16px;
+  margin-top: 1px;
+}
+.place-item .place-info { flex: 1; min-width: 0; }
+.place-item .place-name { font-size: 16px; font-weight: 700; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.place-item .place-type { font-size: 14px; color: var(--gray-600); margin-bottom: 6px; }
+.place-item .place-addr { font-size: 13px; color: var(--gray-400); margin-bottom: 5px; }
+.place-item .place-badges { display: flex; gap: 4px; flex-wrap: wrap; }
+.badge {
+  padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;
+}
+.badge-ramp    { background: var(--green-l); color: var(--green-d); }
+.badge-braille { background: var(--blue-l);  color: var(--blue); }
+.badge-region  { background: var(--gray-100); color: var(--gray-600); }
+.badge-status  { background: var(--amber-l); color: var(--amber); }
+.badge-closed  { background: #FEE2E2; color: var(--red); }
+
+/* 내부 관리 전용 배지 */
+.badge-need    { background: #FEF3C7; color: #92400E; }
+.badge-review  { background: #EDE9FE; color: #5B21B6; }
+
+/* 빈 상태 */
+#empty-state {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  color: var(--gray-400); gap: 8px; padding: 40px 20px; text-align: center;
+}
+#empty-state .empty-icon { font-size: 36px; }
+#empty-state p { font-size: 14px; }
+
+/* ── 지도 영역 ── */
+#map-wrap { flex: 1; position: relative; }
+#kakao-map { width: 100%; height: 100%; background: #e8ece8; }
+
+/* 지도 로딩 */
+#map-placeholder {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: #EEF2EE; gap: 12px; color: var(--gray-600);
+}
+#map-placeholder .map-icon { font-size: 48px; opacity: .4; }
+#map-placeholder p { font-size: 14px; text-align: center; line-height: 1.6; }
+#map-placeholder code {
+  background: var(--gray-200); padding: 2px 8px; border-radius: 4px;
+  font-size: 12px; font-family: monospace;
+}
+
+/* 패널 토글 버튼 */
+#panel-toggle {
+  position: absolute; top: 50%; left: 0; transform: translateY(-50%);
+  width: 20px; height: 56px; background: #fff;
+  border: 1px solid var(--gray-200); border-left: none;
+  border-radius: 0 8px 8px 0;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: var(--shadow-sm); z-index: 50; font-size: 10px; color: var(--gray-400);
+  transition: all .18s;
+}
+#panel-toggle:hover { background: var(--gray-50); color: var(--green); }
+
+/* ── 상세 팝업 ── */
+#detail-panel {
+  position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+  width: 340px; max-width: calc(100% - 32px);
+  background: #fff; border-radius: var(--radius);
+  box-shadow: var(--shadow-lg); z-index: 300;
+  animation: slideUp .22s ease; overflow: hidden;
+  display: none;
+}
+#detail-panel.show { display: block; }
+@keyframes slideUp { from { opacity: 0; transform: translateX(-50%) translateY(12px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+
+.detail-header {
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid var(--gray-100);
+  display: flex; align-items: flex-start; gap: 10px;
+}
+.detail-icon {
+  width: 44px; height: 44px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;
+}
+.detail-name { font-size: 16px; font-weight: 700; margin-bottom: 3px; }
+.detail-type { font-size: 13px; color: var(--gray-600); }
+.detail-close {
+  margin-left: auto; width: 28px; height: 28px; border-radius: 50%;
+  background: var(--gray-100); color: var(--gray-600); font-size: 14px; flex-shrink: 0;
+}
+.detail-body { padding: 12px 16px; }
+.detail-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: flex-start; font-size: 13px; }
+.detail-row .detail-label { color: var(--gray-400); width: 56px; flex-shrink: 0; }
+.detail-row .detail-val { color: var(--gray-800); flex: 1; }
+.detail-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+
+/* 내부 메모 (관리자 전용) */
+.internal-note {
+  margin-top: 10px; padding: 10px 12px; background: var(--amber-l);
+  border-radius: 8px; border-left: 3px solid var(--amber); font-size: 12px; color: #78350F;
+}
+
+/* ── 통계 바 (관리자 모드) ── */
+#stats-bar {
+  position: absolute; top: 12px; right: 12px;
+  background: #fff; border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 10px 14px;
+  display: none; gap: 16px; font-size: 12px; z-index: 100;
+}
+#stats-bar.show { display: flex; }
+.stat-item { text-align: center; }
+.stat-num { font-size: 18px; font-weight: 900; line-height: 1; }
+.stat-label { color: var(--gray-400); margin-top: 2px; }
+
+/* ── 공개 모드 배너 ── */
+#public-banner {
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+  background: #fff; border-radius: 24px; box-shadow: var(--shadow);
+  padding: 8px 18px; font-size: 13px; font-weight: 600; color: var(--green-d);
+  white-space: nowrap; z-index: 100; display: none;
+  border: 1px solid var(--green-l);
+}
+#public-banner.show { display: block; }
+
+/* ── 마커 커스텀 (인포윈도우 대체) ── */
+.custom-overlay {
+  background: var(--green); color: #fff;
+  padding: 4px 10px; border-radius: 20px;
+  font-size: 11px; font-weight: 700;
+  box-shadow: 0 2px 8px rgba(0,0,0,.2);
+  white-space: nowrap; cursor: pointer;
+  transform: translateY(-100%) translateX(-50%);
+  position: absolute;
+}
+
+/* ── 반응형 ── */
+@media (max-width: 640px) {
+  #side-panel { width: 100%; position: absolute; top: 56px; left: 0; height: calc(100% - 56px); z-index: 150; }
+  #side-panel.collapsed { width: 0; overflow: hidden; }
+  #map-wrap { width: 100%; }
+  #panel-toggle { display: none; }
+}
+
+/* ── 로딩 스피너 ── */
+.spinner {
+  width: 20px; height: 20px; border: 2px solid var(--gray-200);
+  border-top-color: var(--green); border-radius: 50%;
+  animation: spin .7s linear infinite; display: inline-block;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+#loading-overlay {
+  position: absolute; inset: 0; background: rgba(255,255,255,.85);
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  font-size: 14px; color: var(--gray-600); z-index: 400; display: none;
+}
+#loading-overlay.show { display: flex; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- 헤더 -->
+  <header id="header">
+    <div class="logo">
+      <div class="logo-icon">♿</div>
+      <div>
+        <div class="logo-text">우리 동네 배리어프리</div>
+        <div class="logo-sub">종로구 배리어프리 가게 지도</div>
       </div>
-      <div class="header-actions">
-        <button class="icon-button" id="refreshButton" type="button"
-          title="시트 다시 불러오기" aria-label="시트 다시 불러오기">
-          <span aria-hidden="true">↻</span>
-        </button>
-        <button class="text-button" id="exportButton" type="button">CSV 내보내기</button>
+    </div>
+    <div class="header-spacer"></div>
+    <div id="mode-toggle">
+      <button id="btn-public" class="active" onclick="setMode('public')">🗺 공개 지도</button>
+      <button id="btn-admin" onclick="setMode('admin')">🔧 관리자</button>
+    </div>
+  </header>
+
+  <!-- 바디 -->
+  <div id="body">
+
+    <!-- 사이드 패널 -->
+    <div id="side-panel">
+      <!-- 검색 -->
+      <div id="search-area">
+        <div id="search-box">
+          <span style="font-size:16px; color:var(--gray-400)">🔍</span>
+          <input type="text" id="search-input" placeholder="상호명, 업종, 지역으로 검색" oninput="onSearch()">
+        </div>
+        <div class="filter-row">
+          <button class="filter-chip active-all" id="chip-all"     onclick="setFilter('all')">전체</button>
+          <button class="filter-chip"            id="chip-ramp"    onclick="setFilter('ramp')">♿ 경사로</button>
+          <button class="filter-chip"            id="chip-braille" onclick="setFilter('braille')">⠿ 점자메뉴판</button>
+          <button class="filter-chip"            id="chip-both"    onclick="setFilter('both')">✦ 둘 다</button>
+        </div>
       </div>
-    </header>
 
-    <main class="app-shell">
+      <!-- 지역 필터 -->
+      <div id="region-filter">
+        <select id="region-select" onchange="onSearch()">
+          <option value="">전체 지역</option>
+        </select>
+      </div>
 
-      <!-- 필터 툴바 -->
-      <section class="toolbar" aria-label="지도 필터">
-        <label class="search-field">
-          <span>검색</span>
-          <input id="searchInput" type="search"
-            placeholder="상호명, 주소, 지역" autocomplete="off" />
-        </label>
-        <div class="segmented" role="group" aria-label="표시 항목">
-          <button class="segment active" type="button" data-filter="all">전체</button>
-          <button class="segment" type="button" data-filter="ramp">♿ 경사로</button>
-          <button class="segment" type="button" data-filter="braille">⠿ 점자메뉴판</button>
-          <button class="segment" type="button" data-filter="both">✦ 둘 다</button>
-        </div>
-        <label class="select-field">
-          <span>지역</span>
-          <select id="regionSelect">
-            <option value="">전체 지역</option>
-          </select>
-        </label>
-        <label class="select-field">
-          <span>업종</span>
-          <select id="categorySelect">
-            <option value="">전체 업종</option>
-          </select>
-        </label>
-      </section>
+      <!-- 관리자 전용 상태 필터 -->
+      <div id="admin-filter" style="padding:0 16px 10px; display:none;">
+        <select id="status-select" onchange="onSearch()" style="width:100%;padding:7px 10px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none;background:#fff;">
+          <option value="">전체 상태</option>
+          <option value="공개 가능">✅ 공개 가능</option>
+          <option value="확인 필요">⚠️ 확인 필요</option>
+          <option value="확인 제외/비공개">🚫 비공개</option>
+          <option value="제작 검토/보급 전">📋 제작 검토</option>
+        </select>
+      </div>
 
-      <!-- 통계 카드 -->
-      <section class="stats" aria-label="현황 요약">
-        <button class="stat-card active" type="button" data-filter="all" aria-pressed="true">
-          <span id="totalCount">0</span>
-          <p>전체</p>
-        </button>
-        <button class="stat-card" type="button" data-filter="ramp" aria-pressed="false">
-          <span id="rampCount">0</span>
-          <p>경사로</p>
-        </button>
-        <button class="stat-card" type="button" data-filter="braille" aria-pressed="false">
-          <span id="brailleCount">0</span>
-          <p>점자메뉴판</p>
-        </button>
-        <button class="stat-card" type="button" data-filter="both" aria-pressed="false">
-          <span id="bothCount">0</span>
-          <p>둘 다</p>
-        </button>
-      </section>
+      <!-- 목록 헤더 -->
+      <div id="list-header">
+        <span id="list-count">0곳</span>
+        <span id="list-mode-label" style="color:var(--green);font-size:11px;font-weight:600"></span>
+      </div>
 
-      <!-- 지도 + 목록 -->
-      <section class="content">
-        <div class="map-wrap">
-          <div id="map" aria-label="배리어프리 가게 지도"></div>
-          <p class="map-note" id="mapNote">시트와 지도를 불러오는 중입니다.</p>
-        </div>
-        <aside class="side-panel" aria-label="가게 목록">
-          <div class="panel-head">
-            <h2>가게 목록</h2>
-            <span id="visibleCount">0곳</span>
+      <!-- 목록 -->
+      <div id="place-list"></div>
+    </div>
+
+    <!-- 지도 -->
+    <div id="map-wrap">
+      <!-- 카카오맵 API 키 미설정 시 안내 -->
+      <div id="map-placeholder">
+        <div class="map-icon">🗺</div>
+        <p>
+          카카오맵을 표시하려면<br>
+          <code>YOUR_KAKAO_APP_KEY</code>를<br>
+          실제 API 키로 교체하세요.
+        </p>
+        <p style="font-size:12px;color:var(--gray-400);margin-top:4px">
+          카카오 개발자센터 → 내 애플리케이션 → JavaScript 키
+        </p>
+      </div>
+      <div id="kakao-map"></div>
+
+      <!-- 패널 토글 -->
+      <button id="panel-toggle" onclick="togglePanel()">◀</button>
+
+      <!-- 공개용 배너 -->
+      <div id="public-banner" class="show">♿ 배리어프리 가게를 찾아보세요</div>
+
+      <!-- 관리자 통계 -->
+      <div id="stats-bar">
+        <div class="stat-item"><div class="stat-num" id="stat-total" style="color:var(--gray-800)">0</div><div class="stat-label">전체</div></div>
+        <div class="stat-item"><div class="stat-num" id="stat-public" style="color:var(--green)">0</div><div class="stat-label">공개</div></div>
+        <div class="stat-item"><div class="stat-num" id="stat-check" style="color:var(--amber)">0</div><div class="stat-label">확인필요</div></div>
+        <div class="stat-item"><div class="stat-num" id="stat-hidden" style="color:var(--red)">0</div><div class="stat-label">비공개</div></div>
+        <div class="stat-item"><div class="stat-num" id="stat-ramp" style="color:var(--green)">0</div><div class="stat-label">경사로</div></div>
+        <div class="stat-item"><div class="stat-num" id="stat-braille" style="color:var(--blue)">0</div><div class="stat-label">점자</div></div>
+      </div>
+
+      <!-- 상세 팝업 -->
+      <div id="detail-panel">
+        <div class="detail-header">
+          <div class="detail-icon" id="d-icon"></div>
+          <div>
+            <div class="detail-name" id="d-name"></div>
+            <div class="detail-type" id="d-type"></div>
           </div>
-          <div class="legend" aria-label="범례">
-            <span><i class="dot ramp"></i>경사로</span>
-            <span><i class="dot braille"></i>점자메뉴판</span>
-            <span><i class="dot both"></i>둘 다</span>
+          <button class="detail-close" onclick="closeDetail()">✕</button>
+        </div>
+        <div class="detail-body">
+          <div class="detail-row"><span class="detail-label">주소</span><span class="detail-val" id="d-addr"></span></div>
+          <div class="detail-row"><span class="detail-label">지역</span><span class="detail-val" id="d-region"></span></div>
+          <div class="detail-row" id="d-memo-row" style="display:none">
+            <span class="detail-label">안내</span><span class="detail-val" id="d-memo"></span>
           </div>
-          <div id="shopList" class="shop-list"></div>
-        </aside>
-      </section>
+          <div class="detail-badges" id="d-badges"></div>
+          <!-- 관리자 전용 -->
+          <div id="d-admin-area" style="display:none">
+            <div class="detail-row" style="margin-top:10px"><span class="detail-label">상태</span><span class="detail-val" id="d-status"></span></div>
+            <div class="detail-row"><span class="detail-label">연도</span><span class="detail-val" id="d-year"></span></div>
+            <div id="d-internal-note" class="internal-note" style="display:none"></div>
+          </div>
+        </div>
+      </div>
 
-      <!-- 푸터 -->
-      <footer class="app-footer">
-        <p>종로장애인복지관 일상동행팀 · 문의 <a href="tel:0263957051">02-6395-7051</a></p>
-        <p>데이터는 정기적으로 현장 모니터링을 통해 업데이트됩니다.</p>
-      </footer>
+      <!-- 로딩 -->
+      <div id="loading-overlay"><div class="spinner"></div> 데이터 불러오는 중...</div>
+    </div>
+  </div>
+</div>
 
-    </main>
+<script>
+// ══════════════════════════════════════════════════════════
+// ★ 설정: 실제 값으로 교체하세요
+// ══════════════════════════════════════════════════════════
+const CONFIG = {
+  // 카카오맵 앱 키 (위 <script> 태그의 appkey와 동일하게)
+  KAKAO_KEY: 'YOUR_KAKAO_APP_KEY',
 
-    <template id="shopTemplate">
-      <article class="shop-card">
-        <button class="shop-main" type="button">
-          <span class="shop-name"></span>
-          <span class="shop-tags"></span>
-          <span class="shop-address"></span>
-        </button>
-        <div class="shop-detail"></div>
-      </article>
-    </template>
+  // Apps Script 웹앱 URL (배포 후 교체)
+  // Google 시트 → 확장 프로그램 → Apps Script → 배포 → 웹앱 URL
+  APPS_SCRIPT_URL: 'YOUR_APPS_SCRIPT_URL',
 
-    <script src="./app.js"></script>
-  </body>
+  // 지도 초기 중심 (종로구청)
+  CENTER: { lat: 37.5730, lng: 126.9794 },
+  ZOOM: 14,
+};
+
+// ══════════════════════════════════════════════════════════
+// 상태
+// ══════════════════════════════════════════════════════════
+let allData    = [];   // 전체 원본
+let filtered   = [];   // 현재 필터된 목록
+let currentFilter = 'all';
+let currentMode   = 'public';  // 'public' | 'admin'
+let selectedId    = null;
+let map           = null;
+let markers       = [];
+let overlays      = [];
+let geocoder      = null;
+let panelOpen     = true;
+
+// ══════════════════════════════════════════════════════════
+// 업종별 이모지
+// ══════════════════════════════════════════════════════════
+const CATEGORY_EMOJI = {
+  '음식점':'🍽', '카페':'☕', '베이커리':'🥐', '편의점':'🏪',
+  '마트':'🛒', '미용실':'✂️', '약국':'💊', '안경점':'👓',
+  '부동산':'🏠', '통신사대리점':'📱', '꽃가게':'🌸', '금융':'🏦',
+  '주점':'🍺', '아이스크림':'🍦', '스포츠용품':'🏸', '찻집':'🍵',
+  '옷가게':'👗', '잡화':'🛍', '의류':'👕',
+};
+const getEmoji = (type) => CATEGORY_EMOJI[type] || '🏬';
+const getBg    = (hasRamp, hasBraille) =>
+  hasRamp && hasBraille ? '#E6F4EF' :
+  hasRamp  ? '#E6F4EF' :
+  hasBraille ? '#EBF2FC' : '#F0F4F7';
+
+// ══════════════════════════════════════════════════════════
+// 초기화
+// ══════════════════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', () => {
+  loadData();
+});
+
+// ══════════════════════════════════════════════════════════
+// 데이터 로드 (Apps Script → 폴백: 내장 샘플)
+// ══════════════════════════════════════════════════════════
+async function loadData() {
+  showLoading(true);
+  try {
+    if (CONFIG.APPS_SCRIPT_URL !== 'YOUR_APPS_SCRIPT_URL') {
+      const res = await fetch(CONFIG.APPS_SCRIPT_URL);
+      const json = await res.json();
+      allData = parseSheetData(json);
+    } else {
+      // 내장 샘플 데이터 (시트에서 공개 가능한 항목 중 일부)
+      allData = SAMPLE_DATA;
+    }
+  } catch(e) {
+    console.warn('데이터 로드 실패, 샘플 사용:', e);
+    allData = SAMPLE_DATA;
+  }
+  showLoading(false);
+  buildRegionOptions();
+  onSearch();
+  initMap();
+}
+
+// Apps Script 응답 파싱 (헤더 행 포함 2D 배열 가정)
+function parseSheetData(rows) {
+  if (!rows || rows.length < 2) return [];
+  const headers = rows[0];
+  const idx = (name) => headers.indexOf(name);
+  return rows.slice(1).map((r, i) => ({
+    id: i,
+    name:       r[idx('상호명')]    || '',
+    type:       r[idx('업종')]      || '',
+    address:    r[idx('주소')]      || '',
+    region:     r[idx('지역')]      || '',
+    hasRamp:    r[idx('경사로')]    === 'Y',
+    hasBraille: r[idx('점자메뉴판')] === 'Y',
+    rampYear:   r[idx('경사로 설치연도')] || r[idx('경사로 보급연도')] || '',
+    brailleYear:r[idx('점자 보급연도')] || '',
+    status:     r[idx('상태')]      || '',
+    memo:       r[idx('공개 메모')] || '',
+    internalMemo: r[idx('내부 검토 메모')] || '',
+    lat: parseFloat(r[idx('위도')]) || 0,
+    lng: parseFloat(r[idx('경도')]) || 0,
+    source:     r[idx('원본 구분')] || '',
+  })).filter(r => r.name);
+}
+
+// ══════════════════════════════════════════════════════════
+// 카카오맵 초기화
+// ══════════════════════════════════════════════════════════
+function initMap() {
+  if (typeof kakao === 'undefined' || CONFIG.KAKAO_KEY === 'YOUR_KAKAO_APP_KEY') {
+    // API 키 미설정 → 플레이스홀더 유지
+    document.getElementById('map-placeholder').style.display = 'flex';
+    return;
+  }
+  document.getElementById('map-placeholder').style.display = 'none';
+  const container = document.getElementById('kakao-map');
+  map = new kakao.maps.Map(container, {
+    center: new kakao.maps.LatLng(CONFIG.CENTER.lat, CONFIG.CENTER.lng),
+    level: CONFIG.ZOOM,
+  });
+  geocoder = new kakao.maps.services.Geocoder();
+  renderMarkers();
+}
+
+// ══════════════════════════════════════════════════════════
+// 마커 렌더
+// ══════════════════════════════════════════════════════════
+function renderMarkers() {
+  if (!map) return;
+  // 기존 마커 제거
+  markers.forEach(m => m.setMap(null));
+  overlays.forEach(o => o.setMap(null));
+  markers = []; overlays = [];
+
+  const toShow = filtered.filter(p => p.lat && p.lng);
+
+  toShow.forEach(place => {
+    const pos = new kakao.maps.LatLng(place.lat, place.lng);
+    const color = place.hasRamp && place.hasBraille ? '#1A5C47' :
+                  place.hasRamp ? '#2E8B6A' : '#3A7BD5';
+
+    // 커스텀 오버레이 (마커 대신)
+    const content = `
+      <div style="
+        background:${color}; color:#fff; padding:4px 10px;
+        border-radius:20px; font-size:11px; font-weight:700;
+        box-shadow:0 2px 8px rgba(0,0,0,.2); white-space:nowrap;
+        cursor:pointer; font-family:'Noto Sans KR',sans-serif;
+        transform:translate(-50%,-100%); position:relative;
+      " onclick="selectPlace(${place.id})">
+        ${getEmoji(place.type)} ${place.name}
+      </div>`;
+
+    const overlay = new kakao.maps.CustomOverlay({
+      position: pos, content, yAnchor: 1,
+    });
+    overlay.setMap(map);
+    overlays.push(overlay);
+  });
+
+  // 좌표 없는 항목 주소 지오코딩 (최대 10개씩)
+  const noCoord = filtered.filter(p => !p.lat || !p.lng).slice(0, 10);
+  noCoord.forEach(place => geocodePlace(place));
+}
+
+function geocodePlace(place) {
+  if (!geocoder) return;
+  geocoder.addressSearch(place.address, (result, status) => {
+    if (status === kakao.maps.services.Status.OK) {
+      place.lat = parseFloat(result[0].y);
+      place.lng = parseFloat(result[0].x);
+      // 업데이트 후 오버레이 추가
+      const pos = new kakao.maps.LatLng(place.lat, place.lng);
+      const color = place.hasRamp && place.hasBraille ? '#1A5C47' :
+                    place.hasRamp ? '#2E8B6A' : '#3A7BD5';
+      const content = `
+        <div style="
+          background:${color}; color:#fff; padding:4px 10px;
+          border-radius:20px; font-size:11px; font-weight:700;
+          box-shadow:0 2px 8px rgba(0,0,0,.2); white-space:nowrap;
+          cursor:pointer; font-family:'Noto Sans KR',sans-serif;
+          transform:translate(-50%,-100%); position:relative;
+        " onclick="selectPlace(${place.id})">
+          ${getEmoji(place.type)} ${place.name}
+        </div>`;
+      const overlay = new kakao.maps.CustomOverlay({ position: pos, content, yAnchor: 1 });
+      overlay.setMap(map);
+      overlays.push(overlay);
+    }
+  });
+}
+
+// ══════════════════════════════════════════════════════════
+// 검색 & 필터
+// ══════════════════════════════════════════════════════════
+function onSearch() {
+  const q       = document.getElementById('search-input').value.trim().toLowerCase();
+  const region  = document.getElementById('region-select').value;
+  const status  = document.getElementById('status-select')?.value || '';
+
+  filtered = allData.filter(p => {
+    // 공개 모드: 공개 가능 항목만
+    if (currentMode === 'public' && p.status !== '공개 가능') return false;
+
+    // 검색어
+    if (q && !p.name.toLowerCase().includes(q) &&
+             !p.type.toLowerCase().includes(q) &&
+             !p.region.toLowerCase().includes(q)) return false;
+
+    // 지역
+    if (region && p.region !== region) return false;
+
+    // 상태 (관리자)
+    if (status && p.status !== status) return false;
+
+    // 배리어프리 필터
+    if (currentFilter === 'ramp'    && !p.hasRamp)    return false;
+    if (currentFilter === 'braille' && !p.hasBraille) return false;
+    if (currentFilter === 'both'    && !(p.hasRamp && p.hasBraille)) return false;
+
+    return true;
+  });
+
+  renderList();
+  renderMarkers();
+  updateStats();
+  updateFilterCounts();
+}
+
+function updateFilterCounts() {
+  const pub = currentMode === 'public' 
+    ? allData.filter(p => p.status === '공개 가능')
+    : allData;
+  const q = document.getElementById('search-input')?.value?.trim().toLowerCase() || '';
+  const region = document.getElementById('region-select')?.value || '';
+
+  const base = pub.filter(p => {
+    const hay = (p.name + p.type + p.region).toLowerCase();
+    return (!q || hay.includes(q)) && (!region || p.region === region);
+  });
+
+  const counts = {
+    all:     base.length,
+    ramp:    base.filter(p => p.hasRamp).length,
+    braille: base.filter(p => p.hasBraille).length,
+    both:    base.filter(p => p.hasRamp && p.hasBraille).length,
+  };
+
+  const chipMap = {
+    all: 'chip-all', ramp: 'chip-ramp', braille: 'chip-braille', both: 'chip-both'
+  };
+  const labels = {
+    all: '전체', ramp: '♿ 경사로', braille: '⠿ 점자메뉴판', both: '✦ 둘 다'
+  };
+  Object.keys(counts).forEach(key => {
+    const el = document.getElementById(chipMap[key]);
+    if (el) el.textContent = labels[key] + ' ' + counts[key];
+  });
+}
+
+function setFilter(f) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-chip').forEach(c => {
+    c.className = 'filter-chip';
+  });
+  const chip = document.getElementById('chip-' + (f === 'all' ? 'all' : f === 'ramp' ? 'ramp' : f === 'braille' ? 'braille' : 'both'));
+  if (chip) chip.className = 'filter-chip active-' + (f === 'all' ? 'all' : f === 'ramp' ? 'ramp' : 'braille');
+  onSearch();
+}
+
+// ══════════════════════════════════════════════════════════
+// 지역 옵션 생성
+// ══════════════════════════════════════════════════════════
+function buildRegionOptions() {
+  const regions = [...new Set(allData.map(p => p.region).filter(Boolean))].sort();
+  const sel = document.getElementById('region-select');
+  sel.innerHTML = '<option value="">전체 지역</option>';
+  regions.forEach(r => {
+    const o = document.createElement('option');
+    o.value = r; o.textContent = r;
+    sel.appendChild(o);
+  });
+}
+
+// ══════════════════════════════════════════════════════════
+// 목록 렌더
+// ══════════════════════════════════════════════════════════
+function renderList() {
+  const list = document.getElementById('place-list');
+  document.getElementById('list-count').textContent = `${filtered.length}곳`;
+
+  if (filtered.length === 0) {
+    list.innerHTML = `
+      <div id="empty-state">
+        <div class="empty-icon">🔍</div>
+        <p>검색 결과가 없어요.</p>
+      </div>`;
+    return;
+  }
+
+  list.innerHTML = filtered.map(p => {
+    const emoji = getEmoji(p.type);
+    const bg    = getBg(p.hasRamp, p.hasBraille);
+    const badges = [
+      p.hasRamp    ? '<span class="badge badge-ramp">♿ 경사로</span>' : '',
+      p.hasBraille ? '<span class="badge badge-braille">⠿ 점자메뉴판</span>' : '',
+      currentMode === 'admin' ? getStatusBadge(p.status) : '',
+    ].filter(Boolean).join('');
+
+    return `
+      <div class="place-item ${selectedId === p.id ? 'selected' : ''}"
+           onclick="selectPlace(${p.id})">
+        <div class="place-icon" style="background:${bg}">${emoji}</div>
+        <div class="place-info">
+          <div class="place-name">${p.name}</div>
+          <div class="place-type">${p.type} · ${p.region}</div>
+          <div class="place-addr">${p.address}</div>
+          <div class="place-badges">${badges}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function getStatusBadge(status) {
+  if (!status) return '';
+  if (status === '공개 가능')        return '<span class="badge" style="background:#DCFCE7;color:#166534">✅ 공개</span>';
+  if (status === '확인 필요')        return '<span class="badge badge-need">⚠️ 확인필요</span>';
+  if (status.includes('비공개'))     return '<span class="badge badge-closed">🚫 비공개</span>';
+  if (status.includes('제작 검토'))  return '<span class="badge badge-review">📋 검토중</span>';
+  return `<span class="badge badge-status">${status}</span>`;
+}
+
+// ══════════════════════════════════════════════════════════
+// 항목 선택
+// ══════════════════════════════════════════════════════════
+function selectPlace(id) {
+  selectedId = id;
+  const p = allData.find(x => x.id === id);
+  if (!p) return;
+
+  // 목록 하이라이트
+  document.querySelectorAll('.place-item').forEach(el => el.classList.remove('selected'));
+  const items = document.querySelectorAll('.place-item');
+  const idx   = filtered.findIndex(x => x.id === id);
+  if (items[idx]) {
+    items[idx].classList.add('selected');
+    items[idx].scrollIntoView({ block: 'nearest' });
+  }
+
+  // 지도 이동
+  if (map && p.lat && p.lng) {
+    map.setCenter(new kakao.maps.LatLng(p.lat, p.lng));
+    map.setLevel(4);
+  }
+
+  // 팝업 없음 - 지도 이동만
+}
+
+// ══════════════════════════════════════════════════════════
+// 상세 팝업
+// ══════════════════════════════════════════════════════════
+function showDetail(p) {}
+
+function closeDetail() {
+  selectedId = null;
+  document.querySelectorAll('.place-item').forEach(el => el.classList.remove('selected'));
+}
+
+// ══════════════════════════════════════════════════════════
+// 모드 전환
+// ══════════════════════════════════════════════════════════
+function setMode(mode) {
+  currentMode = mode;
+  document.getElementById('btn-public').classList.toggle('active', mode === 'public');
+  document.getElementById('btn-admin').classList.toggle('active', mode === 'admin');
+
+  // 관리자 전용 UI 토글
+  document.getElementById('admin-filter').style.display = mode === 'admin' ? 'block' : 'none';
+  document.getElementById('stats-bar').classList.toggle('show', mode === 'admin');
+  document.getElementById('public-banner').classList.toggle('show', mode === 'public');
+  document.getElementById('list-mode-label').textContent = mode === 'admin' ? '관리자 모드' : '';
+
+  closeDetail();
+  onSearch();
+}
+
+// ══════════════════════════════════════════════════════════
+// 통계 업데이트 (관리자)
+// ══════════════════════════════════════════════════════════
+function updateStats() {
+  if (currentMode !== 'admin') return;
+  const pub  = allData.filter(p => p.status === '공개 가능').length;
+  const chk  = allData.filter(p => p.status === '확인 필요').length;
+  const hid  = allData.filter(p => p.status && p.status.includes('비공개')).length;
+  const ramp = allData.filter(p => p.hasRamp).length;
+  const brl  = allData.filter(p => p.hasBraille).length;
+  document.getElementById('stat-total').textContent   = allData.length;
+  document.getElementById('stat-public').textContent  = pub;
+  document.getElementById('stat-check').textContent   = chk;
+  document.getElementById('stat-hidden').textContent  = hid;
+  document.getElementById('stat-ramp').textContent    = ramp;
+  document.getElementById('stat-braille').textContent = brl;
+}
+
+// ══════════════════════════════════════════════════════════
+// 패널 토글
+// ══════════════════════════════════════════════════════════
+function togglePanel() {
+  panelOpen = !panelOpen;
+  document.getElementById('side-panel').classList.toggle('collapsed', !panelOpen);
+  document.getElementById('panel-toggle').textContent = panelOpen ? '◀' : '▶';
+}
+
+// ══════════════════════════════════════════════════════════
+// 로딩
+// ══════════════════════════════════════════════════════════
+function showLoading(show) {
+  document.getElementById('loading-overlay').classList.toggle('show', show);
+}
+
+// ══════════════════════════════════════════════════════════
+// ★ 내장 샘플 데이터 (시트 연결 전까지 사용)
+//   상태 = 공개 가능인 항목만 선별
+// ══════════════════════════════════════════════════════════
+const SAMPLE_DATA = [
+  { id:0,  name:'GS25 삼청제일점',          type:'편의점',    address:'삼청로 108',              region:'북촌',          hasRamp:true,  hasBraille:false, rampYear:'2024', brailleYear:'', status:'공개 가능', memo:'', internalMemo:'', lat:37.5819, lng:126.9810 },
+  { id:1,  name:'연왕보이차',                type:'찻집',      address:'인사동10길 23-4',          region:'인사동/종로3가', hasRamp:true,  hasBraille:false, rampYear:'2024', brailleYear:'', status:'공개 가능', memo:'', internalMemo:'', lat:37.5740, lng:126.9854 },
+  { id:2,  name:'선비옥',                   type:'음식점',    address:'종로 16길 23',             region:'광화문/종각',   hasRamp:true,  hasBraille:false, rampYear:'2024', brailleYear:'', status:'공개 가능', memo:'', internalMemo:'', lat:37.5701, lng:126.9817 },
+  { id:3,  name:'매머드익스프레스 종로구청북부점', type:'카페',  address:'수송동 130',              region:'광화문/종각',   hasRamp:true,  hasBraille:false, rampYear:'2024', brailleYear:'', status:'공개 가능', memo:'', internalMemo:'', lat:37.5757, lng:126.9776 },
+  { id:4,  name:'씨엘로',                   type:'카페',      address:'자하문로30길 19-12',        region:'서촌',          hasRamp:true,  hasBraille:false, rampYear:'2024', brailleYear:'', status:'공개 가능', memo:'현판 전화번호 기입', internalMemo:'', lat:37.5823, lng:126.9670 },
+  { id:5,  name:'전주식당',                 type:'음식점',    address:'종로구 자하문로112',        region:'서촌',          hasRamp:false, hasBraille:true,  rampYear:'', brailleYear:'2023', status:'공개 가능', memo:'점자메뉴판 보급 상점', internalMemo:'', lat:37.5870, lng:126.9671 },
+  { id:6,  name:'종갓집',                   type:'음식점',    address:'종로구 자하문로 110',       region:'서촌',          hasRamp:true,  hasBraille:true,  rampYear:'2024', brailleYear:'2023', status:'공개 가능', memo:'점자메뉴판 보급 상점', internalMemo:'현판 전화번호 기입', lat:37.5868, lng:126.9671 },
+  { id:7,  name:'효자분식',                 type:'음식점',    address:'종로구 필운대로 108-2',     region:'서촌',          hasRamp:false, hasBraille:true,  rampYear:'', brailleYear:'2023', status:'공개 가능', memo:'점자메뉴판 보급 상점', internalMemo:'', lat:37.5836, lng:126.9644 },
+  { id:8,  name:'컴포즈커피 경복궁점',       type:'카페',      address:'자하문로 17-2',            region:'서촌',          hasRamp:true,  hasBraille:false, rampYear:'2024', brailleYear:'', status:'공개 가능', memo:'도움벨 사용', internalMemo:'', lat:37.5768, lng:126.9715 },
+  { id:9,  name:'평화제과',                 type:'베이커리',  address:'자하문로 68 1층',          region:'서촌',          hasRamp:true,  hasBraille:false, rampYear:'2024', brailleYear:'', status:'공개 가능', memo:'도움벨 사용', internalMemo:'', lat:37.5847, lng:126.9672 },
+  { id:10, name:'유키모찌 혜화',             type:'아이스크림', address:'대학로12길 50',           region:'대학로/혜화',   hasRamp:true,  hasBraille:false, rampYear:'2024', brailleYear:'', status:'공개 가능', memo:'도움벨 사용', internalMemo:'', lat:37.5822, lng:127.0019 },
+  { id:11, name:'어촌 생선구이',             type:'음식점',    address:'혜화로10-3',              region:'대학로/혜화',   hasRamp:true,  hasBraille:false, rampYear:'2024', brailleYear:'', status:'공개 가능', memo:'', internalMemo:'', lat:37.5818, lng:127.0014 },
+  { id:12, name:'강원도메밀막국수',          type:'음식점',    address:'김상옥로 42-1',            region:'종로5·6가',    hasRamp:true,  hasBraille:false, rampYear:'2024', brailleYear:'', status:'공개 가능', memo:'', internalMemo:'', lat:37.5739, lng:127.0091 },
+  { id:13, name:'행복한 베이커리&카페',      type:'카페',      address:'서울 종로구 자하문로 89',   region:'서촌',          hasRamp:false, hasBraille:true,  rampYear:'', brailleYear:'2026', status:'공개 가능', memo:'점자메뉴판 보급 상점', internalMemo:'2023 보급 상점 / 메뉴 수정 필요', lat:37.5862, lng:126.9679 },
+  { id:14, name:'효자카페',                 type:'카페',      address:'서울 종로구 필운대로 53',   region:'서촌',          hasRamp:false, hasBraille:true,  rampYear:'', brailleYear:'2026', status:'공개 가능', memo:'점자메뉴판 보급 상점', internalMemo:'2023 보급 상점 / 메뉴 수정 필요', lat:37.5818, lng:126.9666 },
+  { id:15, name:'서울래빗',                 type:'카페',      address:'서울 종로구 자하문로 19-1', region:'서촌',          hasRamp:false, hasBraille:true,  rampYear:'', brailleYear:'2026', status:'공개 가능', memo:'점자메뉴판 보급 상점', internalMemo:'', lat:37.5773, lng:126.9711 },
+  // 관리자 전용 (확인 필요)
+  { id:16, name:'영광통닭',                 type:'음식점',    address:'필운대로 55-1',            region:'서촌',          hasRamp:true,  hasBraille:false, rampYear:'2021', brailleYear:'', status:'확인 필요', memo:'', internalMemo:'2021년 설치 이후 미확인', lat:37.5815, lng:126.9644 },
+  { id:17, name:'라카페갤러리',              type:'카페',      address:'자하문로10길 28',          region:'서촌',          hasRamp:true,  hasBraille:false, rampYear:'2024', brailleYear:'', status:'확인 제외/비공개', memo:'', internalMemo:'폐업 확인', lat:37.5833, lng:126.9676 },
+  { id:18, name:'카페 오쁘띠베르',           type:'카페',      address:'서울 종로구 자하문로 47-1', region:'서촌',          hasRamp:false, hasBraille:true,  rampYear:'', brailleYear:'', status:'제작 검토/보급 전', memo:'', internalMemo:'제작 완료, 보급일 입력 필요', lat:37.5802, lng:126.9694 },
+];
+</script>
+  <!-- 푸터 -->
+  <footer style="text-align:center; padding:16px 20px; font-size:13px; color:#94A3B8; border-top:1px solid #E2E8F0; background:#fff; flex-shrink:0;">
+    종로장애인복지관 일상동행팀 · 문의 <a href="tel:0263957051" style="color:#2E8B6A; text-decoration:none;">02-6395-7051</a><br>
+    데이터는 정기적으로 현장 모니터링을 통해 업데이트됩니다.
+  </footer>
+
+</body>
 </html>
