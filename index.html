@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>우리 동네 배리어프리 지도 | 종로구</title>
 
-<!-- 카카오맵 SDK: YOUR_KAKAO_APP_KEY 를 실제 키로 교체하세요 -->
+<!-- 카카오맵 SDK: 80997111825554ef64ddb0481b4c0a76 를 실제 키로 교체하세요 -->
 <script type="text/javascript"
-  src="//dapi.kakao.com/v2/maps/sdk.js?appkey=YOUR_KAKAO_APP_KEY&libraries=services"></script>
+  src="//dapi.kakao.com/v2/maps/sdk.js?appkey=80997111825554ef64ddb0481b4c0a76&libraries=services"></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=Noto+Serif+KR:wght@600;700&display=swap" rel="stylesheet">
@@ -120,7 +120,7 @@ input, select { font-family: var(--font); }
 
 /* 목록 */
 #list-header {
-  padding: 10px 16px; font-size: 12px; font-weight: 700; color: var(--gray-400);
+  padding: 8px 16px; font-size: 11px; font-weight: 700; color: var(--gray-400);
   letter-spacing: .06em; text-transform: uppercase; flex-shrink: 0;
   border-bottom: 1px solid var(--gray-100);
   display: flex; justify-content: space-between; align-items: center;
@@ -142,7 +142,7 @@ input, select { font-family: var(--font); }
 }
 .place-item .place-info { flex: 1; min-width: 0; }
 .place-item .place-name { font-size: 16px; font-weight: 700; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.place-item .place-type { font-size: 14px; color: var(--gray-600); margin-bottom: 6px; }
+.place-item .place-type { font-size: 14px; color: var(--gray-600); margin-bottom: 4px; }
 .place-item .place-addr { font-size: 13px; color: var(--gray-400); margin-bottom: 5px; }
 .place-item .place-badges { display: flex; gap: 4px; flex-wrap: wrap; }
 .badge {
@@ -365,7 +365,7 @@ input, select { font-family: var(--font); }
         <div class="map-icon">🗺</div>
         <p>
           카카오맵을 표시하려면<br>
-          <code>YOUR_KAKAO_APP_KEY</code>를<br>
+          <code>80997111825554ef64ddb0481b4c0a76</code>를<br>
           실제 API 키로 교체하세요.
         </p>
         <p style="font-size:12px;color:var(--gray-400);margin-top:4px">
@@ -428,7 +428,7 @@ input, select { font-family: var(--font); }
 // ══════════════════════════════════════════════════════════
 const CONFIG = {
   // 카카오맵 앱 키 (위 <script> 태그의 appkey와 동일하게)
-  KAKAO_KEY: 'YOUR_KAKAO_APP_KEY',
+  KAKAO_KEY: '80997111825554ef64ddb0481b4c0a76',
 
   // Apps Script 웹앱 URL (배포 후 교체)
   // Google 시트 → 확장 프로그램 → Apps Script → 배포 → 웹앱 URL
@@ -528,7 +528,7 @@ function parseSheetData(rows) {
 // 카카오맵 초기화
 // ══════════════════════════════════════════════════════════
 function initMap() {
-  if (typeof kakao === 'undefined' || CONFIG.KAKAO_KEY === 'YOUR_KAKAO_APP_KEY') {
+  if (typeof kakao === 'undefined' || CONFIG.KAKAO_KEY === '80997111825554ef64ddb0481b4c0a76') {
     // API 키 미설정 → 플레이스홀더 유지
     document.getElementById('map-placeholder').style.display = 'flex';
     return;
@@ -649,35 +649,23 @@ function onSearch() {
 }
 
 function updateFilterCounts() {
-  const pub = currentMode === 'public' 
+  const base = currentMode === 'public'
     ? allData.filter(p => p.status === '공개 가능')
     : allData;
-  const q = document.getElementById('search-input')?.value?.trim().toLowerCase() || '';
-  const region = document.getElementById('region-select')?.value || '';
-
-  const base = pub.filter(p => {
-    const hay = (p.name + p.type + p.region).toLowerCase();
-    return (!q || hay.includes(q)) && (!region || p.region === region);
-  });
-
   const counts = {
     all:     base.length,
     ramp:    base.filter(p => p.hasRamp).length,
     braille: base.filter(p => p.hasBraille).length,
     both:    base.filter(p => p.hasRamp && p.hasBraille).length,
   };
-
-  const chipMap = {
-    all: 'chip-all', ramp: 'chip-ramp', braille: 'chip-braille', both: 'chip-both'
-  };
-  const labels = {
-    all: '전체', ramp: '♿ 경사로', braille: '⠿ 점자메뉴판', both: '✦ 둘 다'
-  };
-  Object.keys(counts).forEach(key => {
-    const el = document.getElementById(chipMap[key]);
-    if (el) el.textContent = labels[key] + ' ' + counts[key];
+  const map = { all:'chip-all', ramp:'chip-ramp', braille:'chip-braille', both:'chip-both' };
+  const labels = { all:'전체', ramp:'♿ 경사로', braille:'⠿ 점자메뉴판', both:'✦ 둘 다' };
+  Object.keys(counts).forEach(k => {
+    const el = document.getElementById(map[k]);
+    if (el) el.textContent = labels[k] + ' ' + counts[k];
   });
 }
+
 
 function setFilter(f) {
   currentFilter = f;
@@ -774,7 +762,7 @@ function selectPlace(id) {
     map.setLevel(4);
   }
 
-  // 팝업 없음 - 지도 이동만
+  showDetail(p);
 }
 
 // ══════════════════════════════════════════════════════════
@@ -866,11 +854,10 @@ const SAMPLE_DATA = [
   { id:18, name:'카페 오쁘띠베르',           type:'카페',      address:'서울 종로구 자하문로 47-1', region:'서촌',          hasRamp:false, hasBraille:true,  rampYear:'', brailleYear:'', status:'제작 검토/보급 전', memo:'', internalMemo:'제작 완료, 보급일 입력 필요', lat:37.5802, lng:126.9694 },
 ];
 </script>
-  <!-- 푸터 -->
-  <footer style="text-align:center; padding:16px 20px; font-size:13px; color:#94A3B8; border-top:1px solid #E2E8F0; background:#fff; flex-shrink:0;">
-    종로장애인복지관 일상동행팀 · 문의 <a href="tel:0263957051" style="color:#2E8B6A; text-decoration:none;">02-6395-7051</a><br>
+
+  <footer style="text-align:center; padding:14px 20px; font-size:13px; color:#94A3B8; border-top:1px solid #E2E8F0; background:#fff; flex-shrink:0;">
+    종로장애인복지관 일상동행팀 · 문의 <a href="tel:0263957051" style="color:#2E8B6A; text-decoration:none; font-weight:600;">02-6395-7051</a><br>
     데이터는 정기적으로 현장 모니터링을 통해 업데이트됩니다.
   </footer>
-
 </body>
 </html>
