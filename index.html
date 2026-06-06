@@ -451,7 +451,7 @@ const CONFIG = {
 
   // Apps Script 웹앱 URL (배포 후 교체)
   // Google 시트 → 확장 프로그램 → Apps Script → 배포 → 웹앱 URL
-  APPS_SCRIPT_URL: 'YOUR_APPS_SCRIPT_URL',
+  APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbxjyM3UgJwxIRXcQROeVNgo02Gw7o_0nV1TjjzaTAfZTohx55zDDp4YkhgijLRRQszD/exec',
 
   // 지도 초기 중심 (종로구청)
   CENTER: { lat: 37.5730, lng: 126.9794 },
@@ -501,7 +501,7 @@ window.addEventListener('DOMContentLoaded', () => {
 async function loadData() {
   showLoading(true);
   try {
-    if (CONFIG.APPS_SCRIPT_URL !== 'YOUR_APPS_SCRIPT_URL') {
+    if (CONFIG.APPS_SCRIPT_URL) {
       const res = await fetch(CONFIG.APPS_SCRIPT_URL);
       const json = await res.json();
       allData = parseSheetData(json);
