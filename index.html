@@ -528,19 +528,35 @@ function parseSheetData(rows) {
 // 카카오맵 초기화
 // ══════════════════════════════════════════════════════════
 function initMap() {
-  if (typeof kakao === 'undefined' || CONFIG.KAKAO_KEY === 'YOUR_KAKAO_APP_KEY') {
-    // API 키 미설정 → 플레이스홀더 유지
+  const key = CONFIG.KAKAO_KEY;
+  if (!key || key === 'YOUR_KAKAO_APP_KEY') {
     document.getElementById('map-placeholder').style.display = 'flex';
     return;
   }
-  document.getElementById('map-placeholder').style.display = 'none';
-  const container = document.getElementById('kakao-map');
-  map = new kakao.maps.Map(container, {
-    center: new kakao.maps.LatLng(CONFIG.CENTER.lat, CONFIG.CENTER.lng),
-    level: CONFIG.ZOOM,
-  });
-  geocoder = new kakao.maps.services.Geocoder();
-  renderMarkers();
+  const script = document.createElement('script');
+  script.src = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=' + encodeURIComponent(key) + '&libraries=services&autoload=false';
+  script.onload = function() {
+    if (!window.kakao || !window.kakao.maps) {
+      document.getElementById('map-placeholder').style.display = 'flex';
+      document.getElementById('mapNote') && (document.getElementById('mapNote').textContent = '카카오 지도 인증 실패. 카카오 개발자 콘솔에서 ' + location.origin + ' 도메인을 등록해주세요.');
+      return;
+    }
+    kakao.maps.load(function() {
+      document.getElementById('map-placeholder').style.display = 'none';
+      const container = document.getElementById('kakao-map');
+      map = new kakao.maps.Map(container, {
+        center: new kakao.maps.LatLng(CONFIG.CENTER.lat, CONFIG.CENTER.lng),
+        level: CONFIG.ZOOM,
+      });
+      geocoder = new kakao.maps.services.Geocoder();
+      renderMarkers();
+    });
+  };
+  script.onerror = function() {
+    document.getElementById('map-placeholder').style.display = 'flex';
+    document.getElementById('mapNote') && (document.getElementById('mapNote').textContent = '카카오 지도 SDK를 불러오지 못했습니다.');
+  };
+  document.head.appendChild(script);
 }
 
 // ══════════════════════════════════════════════════════════
