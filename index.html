@@ -3,17 +3,19 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>배리어프리 가게 안내 지도</title>
-    <link rel="stylesheet" href="./styles.css?v=20260603-3" />
+    <title>배리어프리 가게 안내 지도 | 종로구</title>
+    <meta name="description" content="종로구 배리어프리 가게 안내 지도 — 경사로, 점자메뉴판이 있는 가게를 찾아보세요." />
+    <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <header class="app-header">
-      <div>
-        <p class="eyebrow">Barrier-free shop map</p>
+      <div class="header-title">
+        <p class="eyebrow">Barrier-free shop map · 종로구</p>
         <h1>배리어프리 가게 안내 지도</h1>
       </div>
       <div class="header-actions">
-        <button class="icon-button" id="refreshButton" type="button" title="시트 다시 불러오기" aria-label="시트 다시 불러오기">
+        <button class="icon-button" id="refreshButton" type="button"
+          title="시트 다시 불러오기" aria-label="시트 다시 불러오기">
           <span aria-hidden="true">↻</span>
         </button>
         <button class="text-button" id="exportButton" type="button">CSV 내보내기</button>
@@ -21,16 +23,19 @@
     </header>
 
     <main class="app-shell">
+
+      <!-- 필터 툴바 -->
       <section class="toolbar" aria-label="지도 필터">
         <label class="search-field">
           <span>검색</span>
-          <input id="searchInput" type="search" placeholder="상호명, 주소, 지역" autocomplete="off" />
+          <input id="searchInput" type="search"
+            placeholder="상호명, 주소, 지역" autocomplete="off" />
         </label>
         <div class="segmented" role="group" aria-label="표시 항목">
           <button class="segment active" type="button" data-filter="all">전체</button>
-          <button class="segment" type="button" data-filter="ramp">경사로</button>
-          <button class="segment" type="button" data-filter="braille">점자메뉴판</button>
-          <button class="segment" type="button" data-filter="both">둘 다</button>
+          <button class="segment" type="button" data-filter="ramp">♿ 경사로</button>
+          <button class="segment" type="button" data-filter="braille">⠿ 점자메뉴판</button>
+          <button class="segment" type="button" data-filter="both">✦ 둘 다</button>
         </div>
         <label class="select-field">
           <span>지역</span>
@@ -46,6 +51,7 @@
         </label>
       </section>
 
+      <!-- 통계 카드 -->
       <section class="stats" aria-label="현황 요약">
         <button class="stat-card active" type="button" data-filter="all" aria-pressed="true">
           <span id="totalCount">0</span>
@@ -65,6 +71,7 @@
         </button>
       </section>
 
+      <!-- 지도 + 목록 -->
       <section class="content">
         <div class="map-wrap">
           <div id="map" aria-label="배리어프리 가게 지도"></div>
@@ -77,12 +84,19 @@
           </div>
           <div class="legend" aria-label="범례">
             <span><i class="dot ramp"></i>경사로</span>
-            <span><i class="dot braille"></i>점자</span>
+            <span><i class="dot braille"></i>점자메뉴판</span>
             <span><i class="dot both"></i>둘 다</span>
           </div>
           <div id="shopList" class="shop-list"></div>
         </aside>
       </section>
+
+      <!-- 푸터 -->
+      <footer class="app-footer">
+        <p>종로장애인복지관 일상동행팀 · 문의 <a href="tel:0263957051">02-6395-7051</a></p>
+        <p>데이터는 정기적으로 현장 모니터링을 통해 업데이트됩니다.</p>
+      </footer>
+
     </main>
 
     <template id="shopTemplate">
@@ -96,6 +110,6 @@
       </article>
     </template>
 
-    <script src="./app.js?v=20260603-3"></script>
+    <script src="./app.js"></script>
   </body>
 </html>

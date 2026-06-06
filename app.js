@@ -399,7 +399,6 @@ function removeMarker(marker) {
   if (mapState.provider === "kakao") {
     marker.infowindow.close();
     marker.marker.setMap(null);
-    return;
   }
 }
 
@@ -440,7 +439,6 @@ async function geocode(address) {
   if (mapState.provider === "kakao") {
     return geocodeWithKakao(address);
   }
-
   return null;
 }
 
@@ -460,33 +458,30 @@ function geocodeWithKakao(address) {
 function updateMapNote() {
   const located = state.filtered.filter((shop) => shop.lat && shop.lng);
   fitMapToVisibleMarkers(located);
-
   const missing = state.filtered.length - located.length;
   const providerLabel = mapState.provider === "kakao" ? "카카오 지도" : "카카오 지도 미연결";
-  elements.mapNote.textContent = missing > 0 ? `${providerLabel} 표시 ${located.length}곳 · 주소 확인 필요 ${missing}곳` : `${providerLabel} 표시 ${located.length}곳`;
+  elements.mapNote.textContent = missing > 0
+    ? `${providerLabel} 표시 ${located.length}곳 · 주소 확인 필요 ${missing}곳`
+    : `${providerLabel} 표시 ${located.length}곳`;
 }
 
 function fitMapToVisibleMarkers(located) {
   if (located.length === 0) return;
-
   if (mapState.provider === "kakao") {
     const bounds = new kakao.maps.LatLngBounds();
     located.forEach((shop) => bounds.extend(new kakao.maps.LatLng(shop.lat, shop.lng)));
     mapState.kakaoMap.setBounds(bounds);
-    return;
   }
 }
 
 function focusShop(shop) {
   const marker = state.markers.get(shop.id);
   if (!marker) return;
-
   if (mapState.provider === "kakao") {
     const position = marker.marker.getPosition();
     mapState.kakaoMap.setLevel(3);
     mapState.kakaoMap.setCenter(position);
     marker.infowindow.open(mapState.kakaoMap, marker.marker);
-    return;
   }
 }
 
@@ -520,7 +515,8 @@ function markerElement(shop) {
 function popupHtml(shop) {
   return `
     <div class="popup-title">${escapeHtml(shop.name)}</div>
-    <div>${escapeHtml(shop.address)}</div>
+    <div style="font-size:12px;color:#637083;margin-bottom:4px">${escapeHtml(shop.category)} · ${escapeHtml(shop.region)}</div>
+    <div style="font-size:12px;margin-bottom:6px">${escapeHtml(shop.address)}</div>
     <div>${tagNodes(shop).map((node) => node.outerHTML).join(" ")}</div>
   `;
 }
@@ -553,15 +549,9 @@ function markerClass(shop) {
 function exportCsv() {
   const headers = ["상호명", "업종", "주소", "지역", "경사로", "점자메뉴판", "공개상태", "위도", "경도"];
   const rows = state.filtered.map((shop) => [
-    shop.name,
-    shop.category,
-    shop.address,
-    shop.region,
-    shop.ramp ? "Y" : "",
-    shop.braille ? "Y" : "",
-    shop.statusLabel,
-    shop.lat || "",
-    shop.lng || "",
+    shop.name, shop.category, shop.address, shop.region,
+    shop.ramp ? "Y" : "", shop.braille ? "Y" : "",
+    shop.statusLabel, shop.lat || "", shop.lng || "",
   ]);
   const csv = [headers, ...rows].map((row) => row.map(csvCell).join(",")).join("\n");
   const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
@@ -584,13 +574,9 @@ function normalizeText(value) {
 function normalizeAddress(value) {
   return String(value || "")
     .replace(/\([^)]*\)/g, "")
-    .replace(/^서울특별시\s*/, "")
-    .replace(/^서울시\s*/, "")
-    .replace(/^서울\s*/, "")
+    .replace(/^서울특별시\s*/, "").replace(/^서울시\s*/, "").replace(/^서울\s*/, "")
     .replace(/^종로구\s*/, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase();
+    .replace(/\s+/g, " ").trim().toLowerCase();
 }
 
 function preferredAddress(current, next) {
@@ -616,11 +602,7 @@ function latestYear(current, next) {
 
 function escapeHtml(value) {
   return String(value || "").replace(/[&<>"']/g, (char) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#039;",
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;",
   })[char]);
 }
 
@@ -637,17 +619,10 @@ function unique(values) {
 }
 
 function loadGeoCache() {
-  try {
-    return JSON.parse(localStorage.getItem(GEO_CACHE_KEY) || "{}");
-  } catch {
-    return {};
-  }
+  try { return JSON.parse(localStorage.getItem(GEO_CACHE_KEY) || "{}"); }
+  catch { return {}; }
 }
 
 function saveGeoCache(cache) {
   localStorage.setItem(GEO_CACHE_KEY, JSON.stringify(cache));
-}
-
-function wait(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
