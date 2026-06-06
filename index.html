@@ -7,7 +7,26 @@
 
 <!-- 카카오맵 SDK: 80997111825554ef64ddb0481b4c0a76 를 실제 키로 교체하세요 -->
 <script type="text/javascript"
-  src="//dapi.kakao.com/v2/maps/sdk.js?appkey=80997111825554ef64ddb0481b4c0a76&libraries=services"></script>
+  src="//dapi.kakao.com/v2/maps/sdk.js?appkey=80997111825554ef64ddb0481b4c0a76&libraries=services">
+function updateFilterCounts() {
+  const base = currentMode === 'public'
+    ? allData.filter(p => p.status === '공개 가능')
+    : allData;
+  const counts = {
+    all:     base.length,
+    ramp:    base.filter(p => p.hasRamp).length,
+    braille: base.filter(p => p.hasBraille).length,
+    both:    base.filter(p => p.hasRamp && p.hasBraille).length,
+  };
+  const labels = { all:'전체', ramp:'♿ 경사로', braille:'⠿ 점자메뉴판', both:'✦ 둘 다' };
+  const ids = { all:'chip-all', ramp:'chip-ramp', braille:'chip-braille', both:'chip-both' };
+  Object.keys(counts).forEach(k => {
+    const el = document.getElementById(ids[k]);
+    if (el) el.textContent = labels[k] + ' ' + counts[k];
+  });
+}
+
+</script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=Noto+Serif+KR:wght@600;700&display=swap" rel="stylesheet">
@@ -530,6 +549,7 @@ function parseSheetData(rows) {
 // ══════════════════════════════════════════════════════════
 function initMap() {
   if (typeof kakao === 'undefined') {
+    // API 키 미설정 → 플레이스홀더 유지
     document.getElementById('map-placeholder').style.display = 'flex';
     return;
   }
@@ -586,11 +606,11 @@ function renderMarkers() {
 
 function geocodePlace(place) {
   if (!geocoder) return;
-  const addr = place.address
-    .replace(/^서울특별시\s*|^서울시\s*|^서울\s*/, '')
-    .replace(/^종로구\s*/, '');
-  const fullAddr = '서울 종로구 ' + addr;
-  geocoder.addressSearch(fullAddr, (result, status) => {
+  const rawAddr = place.address
+    .replace(/^서울특별시 */g, '').replace(/^서울시 */g, '').replace(/^서울 */g, '')
+    .replace(/^종로구 */g, '');
+  const searchAddr = '서울 종로구 ' + rawAddr;
+  geocoder.addressSearch(searchAddr, (result, status) => {
     if (status === kakao.maps.services.Status.OK) {
       place.lat = parseFloat(result[0].y);
       place.lng = parseFloat(result[0].x);
@@ -664,25 +684,6 @@ function setFilter(f) {
 // ══════════════════════════════════════════════════════════
 // 지역 옵션 생성
 // ══════════════════════════════════════════════════════════
-
-function updateFilterCounts() {
-  const base = currentMode === 'public'
-    ? allData.filter(p => p.status === '공개 가능')
-    : allData;
-  const counts = {
-    all: base.length,
-    ramp: base.filter(p => p.hasRamp).length,
-    braille: base.filter(p => p.hasBraille).length,
-    both: base.filter(p => p.hasRamp && p.hasBraille).length,
-  };
-  const labels = { all:'전체', ramp:'♿ 경사로', braille:'⠿ 점자메뉴판', both:'✦ 둘 다' };
-  const ids = { all:'chip-all', ramp:'chip-ramp', braille:'chip-braille', both:'chip-both' };
-  Object.keys(counts).forEach(k => {
-    const el = document.getElementById(ids[k]);
-    if (el) el.textContent = labels[k] + ' ' + counts[k];
-  });
-}
-
 function buildRegionOptions() {
   const regions = [...new Set(allData.map(p => p.region).filter(Boolean))].sort();
   const sel = document.getElementById('region-select');
@@ -771,7 +772,54 @@ function selectPlace(id) {
 // ══════════════════════════════════════════════════════════
 // 상세 팝업
 // ══════════════════════════════════════════════════════════
-function showDetail(p) {}
+function showDetail(p) {
+  const panel = document.getElementById('detail-panel');
+  const bg    = getBg(p.hasRamp, p.hasBraille);
+
+  document.getElementById('d-icon').textContent = getEmoji(p.type);
+  document.getElementById('d-icon').style.background = bg;
+  document.getElementById('d-name').textContent = p.name;
+  document.getElementById('d-type').textContent = p.type;
+  document.getElementById('d-addr').textContent = p.address || '-';
+  document.getElementById('d-region').textContent = p.region || '-';
+
+  // 공개 메모
+  const memoRow = document.getElementById('d-memo-row');
+  if (p.memo) {
+    memoRow.style.display = 'flex';
+    document.getElementById('d-memo').textContent = p.memo;
+  } else {
+    memoRow.style.display = 'none';
+  }
+
+  // 배지
+  const badgesEl = document.getElementById('d-badges');
+  badgesEl.innerHTML = [
+    p.hasRamp    ? '<span class="badge badge-ramp">♿ 경사로 있음</span>' : '',
+    p.hasBraille ? '<span class="badge badge-braille">⠿ 점자메뉴판 있음</span>' : '',
+    p.region     ? `<span class="badge badge-region">${p.region}</span>` : '',
+  ].filter(Boolean).join('');
+
+  // 관리자 전용
+  const adminArea = document.getElementById('d-admin-area');
+  if (currentMode === 'admin') {
+    adminArea.style.display = 'block';
+    document.getElementById('d-status').textContent = p.status || '-';
+    const year = [p.rampYear ? `경사로 ${p.rampYear}` : '', p.brailleYear ? `점자 ${p.brailleYear}` : ''].filter(Boolean).join(' / ') || '-';
+    document.getElementById('d-year').textContent = year;
+    const noteEl = document.getElementById('d-internal-note');
+    if (p.internalMemo) {
+      noteEl.style.display = 'block';
+      noteEl.textContent = '📌 ' + p.internalMemo;
+    } else {
+      noteEl.style.display = 'none';
+    }
+  } else {
+    adminArea.style.display = 'none';
+  }
+
+  panel.classList.add('show');
+}
 
 function closeDetail() {
   document.getElementById('detail-panel').classList.remove('show');
