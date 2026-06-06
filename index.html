@@ -529,8 +529,7 @@ function parseSheetData(rows) {
 // 카카오맵 초기화
 // ══════════════════════════════════════════════════════════
 function initMap() {
-  if (typeof kakao === 'undefined' || CONFIG.KAKAO_KEY === '80997111825554ef64ddb0481b4c0a76') {
-    // API 키 미설정 → 플레이스홀더 유지
+  if (typeof kakao === 'undefined') {
     document.getElementById('map-placeholder').style.display = 'flex';
     return;
   }
