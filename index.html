@@ -39,6 +39,24 @@
 html, body { height: 100%; font-family: var(--font); color: var(--gray-800); background: var(--gray-50); }
 button { cursor: pointer; border: none; background: none; font-family: var(--font); }
 input, select { font-family: var(--font); }
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+.place-item:focus-visible {
+  outline: 3px solid #F59E0B;
+  outline-offset: 2px;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 
 /* ── 레이아웃 ── */
 #app { display: flex; flex-direction: column; height: 100vh; }
@@ -123,6 +141,7 @@ input, select { font-family: var(--font); }
 .filter-chip.active-ramp  { border-color: var(--green); color: var(--green); background: var(--green-l); }
 .filter-chip.active-braille { border-color: var(--blue); color: var(--blue); background: var(--blue-l); }
 .filter-chip.active-all   { border-color: var(--gray-800); color: var(--gray-800); background: var(--gray-100); }
+.filter-chip.active-both { border-color: #7C3AED; color: #5B21B6; background: #F3E8FF; }
 
 /* 지역 필터 */
 #region-filter { padding: 0 16px 10px; flex-shrink: 0; }
@@ -160,6 +179,12 @@ input, select { font-family: var(--font); }
 }
 .place-item:hover { background: var(--gray-50); }
 .place-item.selected { background: var(--green-l); }
+button.place-item {
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
 .place-item .place-icon {
   width: 36px; height: 36px; border-radius: 8px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center; font-size: 16px;
@@ -386,6 +411,7 @@ input, select { font-family: var(--font); }
 </style>
 </head>
 <body>
+<a class="sr-only" href="#place-list">가게 목록으로 바로가기</a>
 <div id="app">
 
   <!-- 헤더 -->
@@ -398,9 +424,9 @@ input, select { font-family: var(--font); }
       </div>
     </div>
     <div class="header-spacer"></div>
-    <div id="mode-toggle">
-      <button id="btn-public" class="active" onclick="setMode('public')">🗺 공개 지도</button>
-      <button id="btn-admin" onclick="setMode('admin')">🔧 관리자</button>
+    <div id="mode-toggle" aria-label="지도 보기 모드">
+      <button id="btn-public" class="active" type="button" aria-pressed="true" onclick="setMode('public')">공개 지도</button>
+      <button id="btn-admin" type="button" aria-pressed="false" onclick="setMode('admin')">관리 보기</button>
     </div>
   </header>
 
@@ -412,19 +438,21 @@ input, select { font-family: var(--font); }
       <!-- 검색 -->
       <div id="search-area">
         <div id="search-box">
-          <span style="font-size:16px; color:var(--gray-400)">🔍</span>
-          <input type="text" id="search-input" placeholder="상호명, 업종, 지역으로 검색" oninput="onSearch()">
+          <span style="font-size:16px; color:var(--gray-400)" aria-hidden="true">🔍</span>
+          <label class="sr-only" for="search-input">상호명, 업종, 지역 검색</label>
+          <input type="text" id="search-input" placeholder="상호명, 업종, 지역으로 검색" autocomplete="off" oninput="onSearch()">
         </div>
-        <div class="filter-row">
-          <button class="filter-chip active-all" id="chip-all"     onclick="setFilter('all')">전체</button>
-          <button class="filter-chip"            id="chip-ramp"    onclick="setFilter('ramp')">♿ 경사로</button>
-          <button class="filter-chip"            id="chip-braille" onclick="setFilter('braille')">⠿ 점자메뉴판</button>
-          <button class="filter-chip"            id="chip-both"    onclick="setFilter('both')">✦ 둘 다</button>
+        <div class="filter-row" aria-label="편의시설 필터">
+          <button class="filter-chip active-all" id="chip-all" type="button" aria-pressed="true" onclick="setFilter('all')">전체</button>
+          <button class="filter-chip" id="chip-ramp" type="button" aria-pressed="false" onclick="setFilter('ramp')">경사로</button>
+          <button class="filter-chip" id="chip-braille" type="button" aria-pressed="false" onclick="setFilter('braille')">점자메뉴판</button>
+          <button class="filter-chip" id="chip-both" type="button" aria-pressed="false" onclick="setFilter('both')">둘 다</button>
         </div>
       </div>
 
       <!-- 지역 필터 -->
       <div id="region-filter">
+        <label class="sr-only" for="region-select">지역 선택</label>
         <select id="region-select" onchange="onSearch()">
           <option value="">전체 지역</option>
         </select>
@@ -432,6 +460,7 @@ input, select { font-family: var(--font); }
 
       <!-- 관리자 전용 상태 필터 -->
       <div id="admin-filter" style="padding:0 16px 10px; display:none;">
+        <label class="sr-only" for="status-select">관리 상태 선택</label>
         <select id="status-select" onchange="onSearch()" style="width:100%;padding:7px 10px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none;background:#fff;">
           <option value="">전체 상태</option>
           <option value="공개 가능">✅ 공개 가능</option>
@@ -443,12 +472,12 @@ input, select { font-family: var(--font); }
 
       <!-- 목록 헤더 -->
       <div id="list-header">
-        <span id="list-count">0곳</span>
+        <span id="list-count" aria-live="polite">0곳</span>
         <span id="list-mode-label" style="color:var(--green);font-size:11px;font-weight:600"></span>
       </div>
 
       <!-- 목록 -->
-      <div id="place-list"></div>
+      <div id="place-list" role="list" aria-label="가게 목록"></div>
       <div id="map-footer">
         <p>종로장애인복지관 일상동행팀 - 문의 <a href="tel:0263957051">02-6395-7051</a></p>
         <p>데이터는 정기적으로 현장 모니터링을 통해 업데이트됩니다.</p>
@@ -469,12 +498,12 @@ input, select { font-family: var(--font); }
           카카오 개발자센터 → 내 애플리케이션 → JavaScript 키
         </p>
       </div>
-      <div id="kakao-map"></div>
+      <div id="kakao-map" role="img" aria-label="종로구 배리어프리 가게 지도"></div>
 
       <!-- 패널 토글 -->
-      <button id="panel-toggle" onclick="togglePanel()">◀</button>
+      <button id="panel-toggle" type="button" aria-label="목록 패널 접기" onclick="togglePanel()">◀</button>
 
-      <button id="my-location-btn" onclick="moveToMyLocation()">내 위치</button>
+      <button id="my-location-btn" type="button" onclick="moveToMyLocation()">내 위치</button>
 
       <!-- 공개용 배너 -->
       <div id="public-banner" class="show">♿ 배리어프리 가게를 찾아보세요</div>
@@ -516,7 +545,7 @@ input, select { font-family: var(--font); }
       </div>
 
       <!-- 로딩 -->
-      <div id="loading-overlay"><div class="spinner"></div> 데이터 불러오는 중...</div>
+      <div id="loading-overlay" role="status" aria-live="polite"><div class="spinner"></div> 데이터 불러오는 중...</div>
     </div>
   </div>
 </div>
@@ -576,6 +605,16 @@ function updateFilterCounts() {
     if (el) el.textContent = labels[k] + ' ' + counts[k];
   });
 }
+
+function updatePressedStates() {
+  document.getElementById('btn-public')?.setAttribute('aria-pressed', String(currentMode === 'public'));
+  document.getElementById('btn-admin')?.setAttribute('aria-pressed', String(currentMode === 'admin'));
+  document.querySelectorAll('.filter-chip').forEach(chip => chip.setAttribute('aria-pressed', 'false'));
+  const activeId = currentFilter === 'all' ? 'chip-all' :
+                   currentFilter === 'ramp' ? 'chip-ramp' :
+                   currentFilter === 'braille' ? 'chip-braille' : 'chip-both';
+  document.getElementById(activeId)?.setAttribute('aria-pressed', 'true');
+}
 // ══════════════════════════════════════════════════════════
 // 업종별 이모지
 // ══════════════════════════════════════════════════════════
@@ -622,6 +661,7 @@ async function loadData() {
   buildRegionOptions();
   onSearch();
   updateFilterCounts();
+  updatePressedStates();
   initMap();
 }
 
@@ -816,7 +856,8 @@ function setFilter(f) {
     c.className = 'filter-chip';
   });
   const chip = document.getElementById('chip-' + (f === 'all' ? 'all' : f === 'ramp' ? 'ramp' : f === 'braille' ? 'braille' : 'both'));
-  if (chip) chip.className = 'filter-chip active-' + (f === 'all' ? 'all' : f === 'ramp' ? 'ramp' : 'braille');
+  if (chip) chip.className = 'filter-chip active-' + (f === 'all' ? 'all' : f === 'ramp' ? 'ramp' : f === 'both' ? 'both' : 'braille');
+  updatePressedStates();
   onSearch();
 }
 
@@ -858,18 +899,22 @@ function renderList() {
       p.hasBraille ? '<span class="badge badge-braille">⠿ 점자메뉴판</span>' : '',
       currentMode === 'admin' ? getStatusBadge(p.status) : '',
     ].filter(Boolean).join('');
+    const name = escapeHtml(p.name);
+    const type = escapeHtml(p.type);
+    const region = escapeHtml(p.region);
+    const address = escapeHtml(p.address);
 
     return `
-      <div class="place-item ${selectedId === p.id ? 'selected' : ''}"
-           onclick="selectPlace(${p.id})">
-        <div class="place-icon" style="background:${bg}">${emoji}</div>
+      <button type="button" class="place-item ${selectedId === p.id ? 'selected' : ''}"
+           role="listitem" onclick="selectPlace(${p.id})">
+        <div class="place-icon" style="background:${bg}" aria-hidden="true">${emoji}</div>
         <div class="place-info">
-          <div class="place-name">${p.name}</div>
-          <div class="place-type">${p.type} · ${p.region}</div>
-          <div class="place-addr">${p.address}</div>
+          <div class="place-name">${name}</div>
+          <div class="place-type">${type} · ${region}</div>
+          <div class="place-addr">${address}</div>
           <div class="place-badges">${badges}</div>
         </div>
-      </div>`;
+      </button>`;
   }).join('');
 }
 
@@ -879,7 +924,7 @@ function getStatusBadge(status) {
   if (status === '확인 필요')        return '<span class="badge badge-need">⚠️ 확인필요</span>';
   if (status.includes('비공개'))     return '<span class="badge badge-closed">🚫 비공개</span>';
   if (status.includes('제작 검토'))  return '<span class="badge badge-review">📋 검토중</span>';
-  return `<span class="badge badge-status">${status}</span>`;
+  return `<span class="badge badge-status">${escapeHtml(status)}</span>`;
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1007,6 +1052,7 @@ function setMode(mode) {
   currentMode = mode;
   document.getElementById('btn-public').classList.toggle('active', mode === 'public');
   document.getElementById('btn-admin').classList.toggle('active', mode === 'admin');
+  updatePressedStates();
 
   // 관리자 전용 UI 토글
   document.getElementById('admin-filter').style.display = mode === 'admin' ? 'block' : 'none';
@@ -1056,6 +1102,7 @@ function togglePanel() {
   panelOpen = !panelOpen;
   document.getElementById('side-panel').classList.toggle('collapsed', !panelOpen);
   document.getElementById('panel-toggle').textContent = panelOpen ? '◀' : '▶';
+  document.getElementById('panel-toggle').setAttribute('aria-label', panelOpen ? '목록 패널 접기' : '목록 패널 펼치기');
 }
 
 // ══════════════════════════════════════════════════════════
