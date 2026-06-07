@@ -54,7 +54,23 @@ input, select { font-family: var(--font); }
 #header .logo-icon {
   width: 32px; height: 32px; border-radius: 8px;
   background: var(--green); display: flex; align-items: center; justify-content: center;
-  font-size: 16px;
+  position: relative;
+}
+#header .logo-icon::before {
+  content: "";
+  width: 12px;
+  height: 12px;
+  border-radius: 50% 50% 50% 0;
+  background: #fff;
+  transform: rotate(-45deg);
+}
+#header .logo-icon::after {
+  content: "";
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--green);
 }
 #header .logo-text { font-size: 15px; font-weight: 700; color: var(--gray-800); }
 #header .logo-sub { font-size: 11px; color: var(--gray-400); margin-top: 1px; }
@@ -295,15 +311,22 @@ input, select { font-family: var(--font); }
 }
 #public-banner.show { display: block; }
 
-/* ── 마커 커스텀 (인포윈도우 대체) ── */
-.custom-overlay {
-  background: var(--green); color: #fff;
-  padding: 4px 10px; border-radius: 20px;
-  font-size: 11px; font-weight: 700;
-  box-shadow: 0 2px 8px rgba(0,0,0,.2);
-  white-space: nowrap; cursor: pointer;
-  transform: translateY(-100%) translateX(-50%);
-  position: absolute;
+.place-info-window {
+  min-width: 160px;
+  padding: 10px 12px;
+  color: var(--gray-800);
+  font-family: 'Noto Sans KR', sans-serif;
+}
+.place-info-window strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 14px;
+}
+.place-info-window span {
+  display: block;
+  color: var(--gray-600);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 /* ── 반응형 ── */
@@ -313,34 +336,32 @@ input, select { font-family: var(--font); }
   #header .logo-text { font-size: 14px; }
   #header .logo-sub { display: none; }
   #mode-toggle button { padding: 5px 9px; font-size: 11px; }
-  #body { position: relative; }
-  #map-wrap { width: 100%; height: 100%; }
+  #body { flex-direction: column; overflow: hidden; }
   #side-panel {
-    position: absolute;
-    left: 8px;
-    right: 8px;
-    bottom: 8px;
-    top: auto;
-    width: auto;
-    height: min(42vh, 340px);
-    border: 1px solid var(--gray-200);
-    border-radius: 14px;
-    box-shadow: var(--shadow-lg);
-    z-index: 160;
+    position: relative;
+    width: 100%;
+    height: 34vh;
+    min-height: 210px;
+    max-height: 290px;
+    border-right: none;
+    border-bottom: 1px solid var(--gray-200);
+    box-shadow: var(--shadow-sm);
+    z-index: 120;
   }
   #side-panel.collapsed { height: 54px; overflow: hidden; }
+  #map-wrap { width: 100%; flex: 1; min-height: 0; }
   #search-area { padding: 10px 12px 8px; }
   #search-box { padding: 7px 10px; margin-bottom: 8px; }
-  #region-filter,
+  #region-filter { padding: 0 12px 8px; }
   #admin-filter,
   #list-header { display: none !important; }
-  #place-list { flex: 1; min-height: 0; }
+  #place-list { flex: 1; min-height: 0; overflow-y: auto; }
   .place-item { padding: 10px 12px; }
   .place-item .place-icon { width: 30px; height: 30px; font-size: 14px; }
   .place-item .place-name { font-size: 14px; }
   .place-item .place-type,
   .place-item .place-addr { font-size: 12px; }
-  #map-footer { padding: 9px 12px 10px; font-size: 11px; }
+  #map-footer { display: none; }
   #public-banner,
   #stats-bar,
   #detail-panel { display: none !important; }
@@ -370,7 +391,7 @@ input, select { font-family: var(--font); }
   <!-- 헤더 -->
   <header id="header">
     <div class="logo">
-      <div class="logo-icon">♿</div>
+      <div class="logo-icon" aria-hidden="true"></div>
       <div>
         <div class="logo-text">우리 동네 배리어프리</div>
         <div class="logo-sub">종로구 배리어프리 가게 지도</div>
@@ -530,6 +551,7 @@ let markers       = [];
 let overlays      = [];
 let geocoder      = null;
 let myLocationOverlay = null;
+let activeInfoWindow = null;
 let panelOpen     = true;
 
 
@@ -639,6 +661,7 @@ function initMap() {
     level: CONFIG.ZOOM,
   });
   geocoder = new kakao.maps.services.Geocoder();
+  kakao.maps.event.addListener(map, 'click', () => closeActiveInfoWindow());
   renderMarkers();
 }
 
@@ -649,32 +672,82 @@ function renderMarkers() {
   if (!map) return;
   markers.forEach(m => m.setMap(null));
   overlays.forEach(o => o.setMap(null));
+  filtered.forEach(p => { p._marker = null; });
   markers = [];
   overlays = [];
+  closeActiveInfoWindow();
 
   filtered.filter(p => p.address).forEach(place => geocodePlace(place));
 }
 
-function addPlaceOverlay(place) {
+function addPlaceMarker(place) {
+  if (place._marker) return;
   const pos = new kakao.maps.LatLng(place.lat, place.lng);
   const color = place.hasRamp && place.hasBraille ? '#7C3AED' :
                 place.hasRamp ? '#2E8B6A' : '#3A7BD5';
-  const content = `
-    <div style="
-      background:${color}; color:#fff; padding:4px 10px;
-      border-radius:20px; font-size:11px; font-weight:700;
-      box-shadow:0 2px 8px rgba(0,0,0,.2); white-space:nowrap;
-      cursor:pointer; font-family:'Noto Sans KR',sans-serif;
-      transform:translate(-50%,-100%); position:relative;
-    " onclick="selectPlace(${place.id})">
-      ${getEmoji(place.type)} ${place.name}
-    </div>`;
-  const overlay = new kakao.maps.CustomOverlay({ position: pos, content, yAnchor: 1 });
-  overlay.setMap(map);
-  overlays.push(overlay);
+  const marker = new kakao.maps.Marker({
+    map,
+    position: pos,
+    image: createPinImage(color)
+  });
+  kakao.maps.event.addListener(marker, 'click', () => {
+    selectPlace(place.id, { keepMap: true });
+    openPlaceInfo(place, pos);
+  });
+  markers.push(marker);
+  place._marker = marker;
 }
 
-function geocodePlace(place) {
+function createPinImage(color) {
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="30" height="42" viewBox="0 0 30 42">
+      <path fill="${color}" stroke="white" stroke-width="2" d="M15 1C7.8 1 2 6.8 2 14c0 9.8 13 26 13 26s13-16.2 13-26C28 6.8 22.2 1 15 1z"/>
+      <circle cx="15" cy="14" r="5" fill="white"/>
+    </svg>`;
+  return new kakao.maps.MarkerImage(
+    'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
+    new kakao.maps.Size(30, 42),
+    { offset: new kakao.maps.Point(15, 42) }
+  );
+}
+
+function openPlaceInfo(place, position) {
+  closeActiveInfoWindow();
+  const badges = [
+    place.hasRamp ? '경사로' : '',
+    place.hasBraille ? '점자메뉴판' : ''
+  ].filter(Boolean).join(' · ');
+  activeInfoWindow = new kakao.maps.InfoWindow({
+    position,
+    removable: false,
+    content: `
+      <div class="place-info-window">
+        <strong>${escapeHtml(place.name)}</strong>
+        <span>${escapeHtml(place.type || badges || '')}</span>
+        <span>${escapeHtml(place.address || '')}</span>
+      </div>`
+  });
+  activeInfoWindow.open(map);
+}
+
+function closeActiveInfoWindow() {
+  if (activeInfoWindow) {
+    activeInfoWindow.close();
+    activeInfoWindow = null;
+  }
+}
+
+function escapeHtml(value) {
+  return String(value || '').replace(/[&<>"']/g, ch => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  }[ch]));
+}
+
+function geocodePlace(place, options = {}) {
   if (!geocoder || !place.address) return;
   const rawAddr = place.address
     .replace(/^서울특별시\s*/g, '')
@@ -687,7 +760,13 @@ function geocodePlace(place) {
     if (status !== kakao.maps.services.Status.OK || !result[0]) return;
     place.lat = parseFloat(result[0].y);
     place.lng = parseFloat(result[0].x);
-    addPlaceOverlay(place);
+    addPlaceMarker(place);
+    if (options.openInfo) {
+      const pos = new kakao.maps.LatLng(place.lat, place.lng);
+      map.setCenter(pos);
+      map.setLevel(4);
+      openPlaceInfo(place, pos);
+    }
   });
 }
 
@@ -802,7 +881,7 @@ function getStatusBadge(status) {
 // ══════════════════════════════════════════════════════════
 // 항목 선택
 // ══════════════════════════════════════════════════════════
-function selectPlace(id) {
+function selectPlace(id, options = {}) {
   selectedId = id;
   const p = allData.find(x => x.id === id);
   if (!p) return;
@@ -817,12 +896,14 @@ function selectPlace(id) {
   }
 
   // 지도 이동
-  if (map) {
+  if (map && !options.keepMap) {
     if (p.lat && p.lng) {
-      map.setCenter(new kakao.maps.LatLng(p.lat, p.lng));
+      const pos = new kakao.maps.LatLng(p.lat, p.lng);
+      map.setCenter(pos);
       map.setLevel(4);
+      openPlaceInfo(p, pos);
     } else {
-      geocodePlace(p);
+      geocodePlace(p, { openInfo: true });
     }
   }
 }
