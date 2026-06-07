@@ -536,6 +536,9 @@ const CONFIG = {
   // 지도 초기 중심 (종로구청)
   CENTER: { lat: 37.5730, lng: 126.9794 },
   ZOOM: 5,
+
+  // 관리자 모드 임시 비밀번호
+  ADMIN_PASSWORD: '0517',
 };
 
 // ══════════════════════════════════════════════════════════
@@ -553,6 +556,7 @@ let geocoder      = null;
 let myLocationOverlay = null;
 let activeInfoWindow = null;
 let panelOpen     = true;
+let adminUnlocked = false;
 
 
 function updateFilterCounts() {
@@ -996,6 +1000,10 @@ function closeDetail() {
 // 모드 전환
 // ══════════════════════════════════════════════════════════
 function setMode(mode) {
+  if (mode === 'admin' && !ensureAdminUnlocked()) {
+    mode = 'public';
+  }
+
   currentMode = mode;
   document.getElementById('btn-public').classList.toggle('active', mode === 'public');
   document.getElementById('btn-admin').classList.toggle('active', mode === 'admin');
@@ -1008,6 +1016,19 @@ function setMode(mode) {
 
   closeDetail();
   onSearch();
+}
+
+function ensureAdminUnlocked() {
+  if (adminUnlocked) return true;
+
+  const input = prompt('관리자 비밀번호를 입력하세요.');
+  if (input === CONFIG.ADMIN_PASSWORD) {
+    adminUnlocked = true;
+    return true;
+  }
+
+  if (input !== null) alert('비밀번호가 맞지 않습니다.');
+  return false;
 }
 
 // ══════════════════════════════════════════════════════════
