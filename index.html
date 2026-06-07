@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>우리 동네 배리어프리 지도 | 종로구</title>
+<link rel="icon" type="image/png" href="./app-icon.png">
+<link rel="apple-touch-icon" href="./app-icon.png">
 
 <!-- 카카오맵 SDK: 80997111825554ef64ddb0481b4c0a76 를 실제 키로 교체하세요 -->
 <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=80997111825554ef64ddb0481b4c0a76&libraries=services"></script>
@@ -71,24 +73,10 @@ select:focus-visible,
 #header .logo { display: flex; align-items: center; gap: 8px; }
 #header .logo-icon {
   width: 32px; height: 32px; border-radius: 8px;
-  background: var(--green); display: flex; align-items: center; justify-content: center;
-  position: relative;
-}
-#header .logo-icon::before {
-  content: "";
-  width: 12px;
-  height: 12px;
-  border-radius: 50% 50% 50% 0;
-  background: #fff;
-  transform: rotate(-45deg);
-}
-#header .logo-icon::after {
-  content: "";
-  position: absolute;
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: var(--green);
+  background: #fff url("./app-icon.png") center / cover no-repeat;
+  border: 1px solid var(--gray-200);
+  box-shadow: var(--shadow-sm);
+  flex-shrink: 0;
 }
 #header .logo-text { font-size: 15px; font-weight: 700; color: var(--gray-800); }
 #header .logo-sub { font-size: 11px; color: var(--gray-400); margin-top: 1px; }
