@@ -658,7 +658,7 @@ function parseSheetData(rows) {
   if (!rows || rows.length < 2) return [];
   const headers = rows[0];
   const idx = (name) => headers.indexOf(name);
-  return rows.slice(1).map((r, i) => ({
+  const parsed = rows.slice(1).map((r, i) => ({
     id: i,
     name:       r[idx('상호명')]    || '',
     type:       r[idx('업종')]      || '',
@@ -675,6 +675,65 @@ function parseSheetData(rows) {
     lng: 0,
     source:     r[idx('원본 구분')] || '',
   })).filter(r => r.name);
+
+  return mergeSamePlaces(parsed);
+}
+
+function normalizePlaceName(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/\s+/g, '')
+    .replace(/[()（）\[\]{}]/g, '')
+    .trim();
+}
+
+function normalizePlaceAddress(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, '')
+    .replace(/서울특별시|서울시|서울|종로구/g, '')
+    .replace(/\s+/g, '')
+    .replace(/[()（）\[\]{}.,-]/g, '')
+    .trim();
+}
+
+function joinUnique(...values) {
+  return [...new Set(values
+    .flatMap(value => String(value || '').split(/\s*\/\s*|\s*,\s*/))
+    .map(value => value.trim())
+    .filter(Boolean))]
+    .join(' / ');
+}
+
+function mergeSamePlaces(rows) {
+  const merged = new Map();
+
+  rows.forEach(row => {
+    const key = normalizePlaceName(row.name) + '|' + normalizePlaceAddress(row.address);
+    if (!key.trim() || !normalizePlaceName(row.name)) return;
+
+    if (!merged.has(key)) {
+      merged.set(key, { ...row });
+      return;
+    }
+
+    const base = merged.get(key);
+    base.hasRamp = base.hasRamp || row.hasRamp;
+    base.hasBraille = base.hasBraille || row.hasBraille;
+    base.rampYear = joinUnique(base.rampYear, row.rampYear);
+    base.brailleYear = joinUnique(base.brailleYear, row.brailleYear);
+    base.memo = joinUnique(base.memo, row.memo);
+    base.internalMemo = joinUnique(base.internalMemo, row.internalMemo);
+    base.source = joinUnique(base.source, row.source);
+    base.status = base.status === '공개 가능' || row.status === '공개 가능'
+      ? '공개 가능'
+      : (base.status || row.status);
+    if (!base.type && row.type) base.type = row.type;
+    if (!base.region && row.region) base.region = row.region;
+    if (row.address && row.address.length > base.address.length) base.address = row.address;
+  });
+
+  return [...merged.values()].map((row, id) => ({ ...row, id }));
 }
 
 // ══════════════════════════════════════════════════════════
