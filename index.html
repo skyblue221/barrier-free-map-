@@ -4,8 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>우리 동네 배리어프리 지도 | 종로구</title>
-<link rel="icon" type="image/png" href="./app-icon.png">
-<link rel="apple-touch-icon" href="./app-icon.png">
 
 <!-- 카카오맵 SDK: 80997111825554ef64ddb0481b4c0a76 를 실제 키로 교체하세요 -->
 <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=80997111825554ef64ddb0481b4c0a76&libraries=services"></script>
@@ -22,6 +20,8 @@
   --green-d: #1A5C47;
   --blue:    #3A7BD5;
   --blue-l:  #EBF2FC;
+  --yellow:  #F5C518;
+  --yellow-l:#FFF7CC;
   --amber:   #D97706;
   --amber-l: #FEF3C7;
   --red:     #DC2626;
@@ -73,10 +73,24 @@ select:focus-visible,
 #header .logo { display: flex; align-items: center; gap: 8px; }
 #header .logo-icon {
   width: 32px; height: 32px; border-radius: 8px;
-  background: #fff url("./app-icon.png") center / cover no-repeat;
-  border: 1px solid var(--gray-200);
-  box-shadow: var(--shadow-sm);
-  flex-shrink: 0;
+  background: var(--green); display: flex; align-items: center; justify-content: center;
+  position: relative;
+}
+#header .logo-icon::before {
+  content: "";
+  width: 12px;
+  height: 12px;
+  border-radius: 50% 50% 50% 0;
+  background: #fff;
+  transform: rotate(-45deg);
+}
+#header .logo-icon::after {
+  content: "";
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--green);
 }
 #header .logo-text { font-size: 15px; font-weight: 700; color: var(--gray-800); }
 #header .logo-sub { font-size: 11px; color: var(--gray-400); margin-top: 1px; }
@@ -130,6 +144,7 @@ select:focus-visible,
 .filter-chip.active-braille { border-color: var(--blue); color: var(--blue); background: var(--blue-l); }
 .filter-chip.active-all   { border-color: var(--gray-800); color: var(--gray-800); background: var(--gray-100); }
 .filter-chip.active-both { border-color: #7C3AED; color: #5B21B6; background: #F3E8FF; }
+.filter-chip.active-access { border-color: var(--yellow); color: #7A5600; background: var(--yellow-l); }
 
 /* 지역 필터 */
 #region-filter { padding: 0 16px 10px; flex-shrink: 0; }
@@ -188,6 +203,7 @@ button.place-item {
 }
 .badge-ramp    { background: var(--green-l); color: var(--green-d); }
 .badge-braille { background: var(--blue-l);  color: var(--blue); }
+.badge-access  { background: var(--yellow-l); color: #7A5600; }
 .badge-region  { background: var(--gray-100); color: var(--gray-600); }
 .badge-status  { background: var(--amber-l); color: var(--amber); }
 .badge-closed  { background: #FEE2E2; color: var(--red); }
@@ -341,26 +357,6 @@ button.place-item {
   font-size: 12px;
   line-height: 1.45;
 }
-.info-window-links {
-  display: flex;
-  gap: 6px;
-  margin-top: 8px;
-}
-.info-window-links a {
-  flex: 1;
-  text-align: center;
-  padding: 5px 0;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 700;
-  text-decoration: none;
-  color: var(--gray-800);
-  background: var(--gray-100);
-  border: 1px solid var(--gray-200);
-}
-.info-window-links a:hover {
-  background: var(--gray-200);
-}
 
 /* ── 반응형 ── */
 @media (max-width: 640px) {
@@ -455,6 +451,7 @@ button.place-item {
           <button class="filter-chip" id="chip-ramp" type="button" aria-pressed="false" onclick="setFilter('ramp')">경사로</button>
           <button class="filter-chip" id="chip-braille" type="button" aria-pressed="false" onclick="setFilter('braille')">점자메뉴판</button>
           <button class="filter-chip" id="chip-both" type="button" aria-pressed="false" onclick="setFilter('both')">둘 다</button>
+          <button class="filter-chip" id="chip-access" type="button" aria-pressed="false" onclick="setFilter('access')">😊 접근성 좋은 상점</button>
         </div>
       </div>
 
@@ -524,6 +521,7 @@ button.place-item {
         <div class="stat-item"><div class="stat-num" id="stat-hidden" style="color:var(--red)">0</div><div class="stat-label">비공개</div></div>
         <div class="stat-item"><div class="stat-num" id="stat-ramp" style="color:var(--green)">0</div><div class="stat-label">경사로</div></div>
         <div class="stat-item"><div class="stat-num" id="stat-braille" style="color:var(--blue)">0</div><div class="stat-label">점자</div></div>
+        <div class="stat-item"><div class="stat-num" id="stat-access" style="color:#7A5600">0</div><div class="stat-label">접근성</div></div>
       </div>
 
       <!-- 상세 팝업 -->
@@ -605,9 +603,10 @@ function updateFilterCounts() {
     ramp:    base.filter(p => p.hasRamp).length,
     braille: base.filter(p => p.hasBraille).length,
     both:    base.filter(p => p.hasRamp && p.hasBraille).length,
+    access:  base.filter(p => p.hasAccess).length,
   };
-  const labels = { all:'전체', ramp:'경사로', braille:'점자메뉴판', both:'둘 다' };
-  const ids = { all:'chip-all', ramp:'chip-ramp', braille:'chip-braille', both:'chip-both' };
+  const labels = { all:'전체', ramp:'경사로', braille:'점자메뉴판', both:'둘 다', access:'😊 접근성 좋은 상점' };
+  const ids = { all:'chip-all', ramp:'chip-ramp', braille:'chip-braille', both:'chip-both', access:'chip-access' };
   Object.keys(counts).forEach(k => {
     const el = document.getElementById(ids[k]);
     if (el) el.textContent = labels[k] + ' ' + counts[k];
@@ -620,7 +619,8 @@ function updatePressedStates() {
   document.querySelectorAll('.filter-chip').forEach(chip => chip.setAttribute('aria-pressed', 'false'));
   const activeId = currentFilter === 'all' ? 'chip-all' :
                    currentFilter === 'ramp' ? 'chip-ramp' :
-                   currentFilter === 'braille' ? 'chip-braille' : 'chip-both';
+                   currentFilter === 'braille' ? 'chip-braille' :
+                   currentFilter === 'access' ? 'chip-access' : 'chip-both';
   document.getElementById(activeId)?.setAttribute('aria-pressed', 'true');
 }
 // ══════════════════════════════════════════════════════════
@@ -634,10 +634,11 @@ const CATEGORY_EMOJI = {
   '옷가게':'👗', '잡화':'🛍', '의류':'👕',
 };
 const getEmoji = (type) => CATEGORY_EMOJI[type] || '🏬';
-const getBg    = (hasRamp, hasBraille) =>
+const getBg    = (hasRamp, hasBraille, hasAccess) =>
   hasRamp && hasBraille ? '#E6F4EF' :
   hasRamp  ? '#E6F4EF' :
-  hasBraille ? '#EBF2FC' : '#F0F4F7';
+  hasBraille ? '#EBF2FC' :
+  hasAccess ? '#FFF7CC' : '#F0F4F7';
 
 // ══════════════════════════════════════════════════════════
 // 초기화
@@ -686,6 +687,7 @@ function parseSheetData(rows) {
     region:     r[idx('지역')]      || '',
     hasRamp:    r[idx('경사로')]    === 'Y',
     hasBraille: r[idx('점자메뉴판')] === 'Y',
+    hasAccess:  r[idx('접근성우수')] === 'Y' || String(r[idx('원본 구분')] || '').includes('접근성'),
     rampYear:   r[idx('경사로 설치연도')] || r[idx('경사로 보급연도')] || '',
     brailleYear:r[idx('점자 보급연도')] || '',
     status:     r[idx('상태')]      || '',
@@ -740,6 +742,7 @@ function mergeSamePlaces(rows) {
     const base = merged.get(key);
     base.hasRamp = base.hasRamp || row.hasRamp;
     base.hasBraille = base.hasBraille || row.hasBraille;
+    base.hasAccess = base.hasAccess || row.hasAccess;
     base.rampYear = joinUnique(base.rampYear, row.rampYear);
     base.brailleYear = joinUnique(base.brailleYear, row.brailleYear);
     base.memo = joinUnique(base.memo, row.memo);
@@ -795,7 +798,9 @@ function addPlaceMarker(place) {
   if (place._marker) return;
   const pos = new kakao.maps.LatLng(place.lat, place.lng);
   const color = place.hasRamp && place.hasBraille ? '#7C3AED' :
-                place.hasRamp ? '#2E8B6A' : '#3A7BD5';
+                place.hasRamp ? '#2E8B6A' :
+                place.hasBraille ? '#3A7BD5' :
+                place.hasAccess ? '#F5C518' : '#94A3B8';
   const marker = new kakao.maps.Marker({
     map,
     position: pos,
@@ -826,15 +831,9 @@ function openPlaceInfo(place, position) {
   closeActiveInfoWindow();
   const badges = [
     place.hasRamp ? '경사로' : '',
-    place.hasBraille ? '점자메뉴판' : ''
+    place.hasBraille ? '점자메뉴판' : '',
+    place.hasAccess ? '접근성 우수' : ''
   ].filter(Boolean).join(' · ');
-
-  const lat = position.getLat();
-  const lng = position.getLng();
-  const nameEnc = encodeURIComponent(place.name);
-  const kakaoUrl = `https://map.kakao.com/link/to/${nameEnc},${lat},${lng}`;
-  const naverUrl = `https://map.naver.com/p/directions/-/${lng},${lat},${nameEnc}/-/walk`;
-
   activeInfoWindow = new kakao.maps.InfoWindow({
     position,
     removable: false,
@@ -843,10 +842,6 @@ function openPlaceInfo(place, position) {
         <strong>${escapeHtml(place.name)}</strong>
         <span>${escapeHtml(place.type || badges || '')}</span>
         <span>${escapeHtml(place.address || '')}</span>
-        <div class="info-window-links">
-          <a href="${kakaoUrl}" target="_blank" rel="noopener">카카오맵</a>
-          <a href="${naverUrl}" target="_blank" rel="noopener">네이버지도</a>
-        </div>
       </div>`
   });
   activeInfoWindow.open(map);
@@ -919,6 +914,7 @@ function onSearch() {
     if (currentFilter === 'ramp'    && !p.hasRamp)    return false;
     if (currentFilter === 'braille' && !p.hasBraille) return false;
     if (currentFilter === 'both'    && !(p.hasRamp && p.hasBraille)) return false;
+    if (currentFilter === 'access'  && !p.hasAccess)  return false;
 
     return true;
   });
@@ -933,8 +929,9 @@ function setFilter(f) {
   document.querySelectorAll('.filter-chip').forEach(c => {
     c.className = 'filter-chip';
   });
-  const chip = document.getElementById('chip-' + (f === 'all' ? 'all' : f === 'ramp' ? 'ramp' : f === 'braille' ? 'braille' : 'both'));
-  if (chip) chip.className = 'filter-chip active-' + (f === 'all' ? 'all' : f === 'ramp' ? 'ramp' : f === 'both' ? 'both' : 'braille');
+  const chipKey = f === 'all' ? 'all' : f === 'ramp' ? 'ramp' : f === 'braille' ? 'braille' : f === 'access' ? 'access' : 'both';
+  const chip = document.getElementById('chip-' + chipKey);
+  if (chip) chip.className = 'filter-chip active-' + chipKey;
   updatePressedStates();
   onSearch();
 }
@@ -971,10 +968,11 @@ function renderList() {
 
   list.innerHTML = filtered.map(p => {
     const emoji = getEmoji(p.type);
-    const bg    = getBg(p.hasRamp, p.hasBraille);
+    const bg    = getBg(p.hasRamp, p.hasBraille, p.hasAccess);
     const badges = [
       p.hasRamp    ? '<span class="badge badge-ramp">♿ 경사로</span>' : '',
       p.hasBraille ? '<span class="badge badge-braille">⠿ 점자메뉴판</span>' : '',
+      p.hasAccess  ? '<span class="badge badge-access">😊 접근성 우수</span>' : '',
       currentMode === 'admin' ? getStatusBadge(p.status) : '',
     ].filter(Boolean).join('');
     const name = escapeHtml(p.name);
@@ -1066,7 +1064,7 @@ function moveToMyLocation() {
 // ══════════════════════════════════════════════════════════
 function showDetail(p) {
   const panel = document.getElementById('detail-panel');
-  const bg    = getBg(p.hasRamp, p.hasBraille);
+  const bg    = getBg(p.hasRamp, p.hasBraille, p.hasAccess);
 
   document.getElementById('d-icon').textContent = getEmoji(p.type);
   document.getElementById('d-icon').style.background = bg;
@@ -1089,6 +1087,7 @@ function showDetail(p) {
   badgesEl.innerHTML = [
     p.hasRamp    ? '<span class="badge badge-ramp">♿ 경사로 있음</span>' : '',
     p.hasBraille ? '<span class="badge badge-braille">⠿ 점자메뉴판 있음</span>' : '',
+    p.hasAccess  ? '<span class="badge badge-access">😊 접근성 우수</span>' : '',
     p.region     ? `<span class="badge badge-region">${p.region}</span>` : '',
   ].filter(Boolean).join('');
 
@@ -1165,12 +1164,14 @@ function updateStats() {
   const hid  = allData.filter(p => p.status && p.status.includes('비공개')).length;
   const ramp = allData.filter(p => p.hasRamp).length;
   const brl  = allData.filter(p => p.hasBraille).length;
+  const acc  = allData.filter(p => p.hasAccess).length;
   document.getElementById('stat-total').textContent   = allData.length;
   document.getElementById('stat-public').textContent  = pub;
   document.getElementById('stat-check').textContent   = chk;
   document.getElementById('stat-hidden').textContent  = hid;
   document.getElementById('stat-ramp').textContent    = ramp;
   document.getElementById('stat-braille').textContent = brl;
+  document.getElementById('stat-access').textContent  = acc;
 }
 
 // ══════════════════════════════════════════════════════════
