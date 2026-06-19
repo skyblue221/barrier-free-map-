@@ -341,21 +341,27 @@ button.place-item {
 #public-banner.show { display: block; }
 
 .place-info-window {
-  min-width: 160px;
+  width: 240px;
+  max-width: 72vw;
   padding: 10px 12px;
   color: var(--gray-800);
   font-family: 'Noto Sans KR', sans-serif;
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 .place-info-window strong {
   display: block;
   margin-bottom: 4px;
   font-size: 14px;
+  line-height: 1.35;
 }
 .place-info-window span {
   display: block;
   color: var(--gray-600);
   font-size: 12px;
   line-height: 1.45;
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 
 /* ── 반응형 ── */
