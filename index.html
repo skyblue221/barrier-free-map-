@@ -376,6 +376,24 @@ button.place-item {
   word-break: keep-all;
   overflow-wrap: break-word;
 }
+.place-info-window .map-open-link {
+  display: block;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--gray-100);
+  color: var(--gray-800);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  text-align: center;
+  text-decoration: none;
+}
+.place-info-window .map-open-link:hover,
+.place-info-window .map-open-link:focus-visible {
+  background: var(--green-l);
+  color: var(--green-d);
+}
 
 /* ── 반응형 ── */
 @media (max-width: 640px) {
@@ -854,6 +872,8 @@ function openPlaceInfo(place, position) {
     place.hasBraille ? '점자메뉴판' : '',
     place.hasAccess ? '접근성 우수' : ''
   ].filter(Boolean).join(' · ');
+  const kakaoQuery = encodeURIComponent([place.name, place.address].filter(Boolean).join(' '));
+  const kakaoUrl = `https://map.kakao.com/link/search/${kakaoQuery}`;
   activeInfoWindow = new kakao.maps.InfoWindow({
     position,
     removable: false,
@@ -862,6 +882,7 @@ function openPlaceInfo(place, position) {
         <strong>${escapeHtml(place.name)}</strong>
         <span>${escapeHtml(place.type || badges || '')}</span>
         <span>${escapeHtml(place.address || '')}</span>
+        <a class="map-open-link" href="${kakaoUrl}" target="_blank" rel="noopener noreferrer">카카오맵에서 보기</a>
       </div>`
   });
   activeInfoWindow.open(map);
