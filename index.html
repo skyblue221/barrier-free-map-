@@ -326,7 +326,20 @@ button.place-item {
   display: none; gap: 16px; font-size: 12px; z-index: 100;
 }
 #stats-bar.show { display: flex; }
-.stat-item { text-align: center; }
+.stat-item {
+  text-align: center;
+  padding: 0 2px;
+  border-radius: 8px;
+  color: inherit;
+}
+.stat-item:hover,
+.stat-item.active {
+  background: var(--gray-100);
+}
+.stat-item:focus-visible {
+  outline: 3px solid #F59E0B;
+  outline-offset: 2px;
+}
 .stat-num { font-size: 18px; font-weight: 900; line-height: 1; }
 .stat-label { color: var(--gray-400); margin-top: 2px; }
 
@@ -472,7 +485,7 @@ button.place-item {
       <!-- 관리자 전용 상태 필터 -->
       <div id="admin-filter" style="padding:0 16px 10px; display:none;">
         <label class="sr-only" for="status-select">관리 상태 선택</label>
-        <select id="status-select" onchange="onSearch()" style="width:100%;padding:7px 10px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none;background:#fff;">
+        <select id="status-select" onchange="activeStatFilter='custom'; onSearch()" style="width:100%;padding:7px 10px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none;background:#fff;">
           <option value="">전체 상태</option>
           <option value="공개 가능">✅ 공개 가능</option>
           <option value="확인 필요">⚠️ 확인 필요</option>
@@ -521,13 +534,13 @@ button.place-item {
 
       <!-- 관리자 통계 -->
       <div id="stats-bar">
-        <div class="stat-item"><div class="stat-num" id="stat-total" style="color:var(--gray-800)">0</div><div class="stat-label">전체</div></div>
-        <div class="stat-item"><div class="stat-num" id="stat-public" style="color:var(--green)">0</div><div class="stat-label">공개</div></div>
-        <div class="stat-item"><div class="stat-num" id="stat-check" style="color:var(--amber)">0</div><div class="stat-label">확인필요</div></div>
-        <div class="stat-item"><div class="stat-num" id="stat-hidden" style="color:var(--red)">0</div><div class="stat-label">비공개</div></div>
-        <div class="stat-item"><div class="stat-num" id="stat-ramp" style="color:var(--green)">0</div><div class="stat-label">경사로</div></div>
-        <div class="stat-item"><div class="stat-num" id="stat-braille" style="color:var(--blue)">0</div><div class="stat-label">점자</div></div>
-        <div class="stat-item"><div class="stat-num" id="stat-access" style="color:#7A5600">0</div><div class="stat-label">접근성</div></div>
+        <button class="stat-item" type="button" data-stat-filter="total" onclick="applyAdminStatFilter('total')" aria-label="전체 항목 보기"><div class="stat-num" id="stat-total" style="color:var(--gray-800)">0</div><div class="stat-label">전체</div></button>
+        <button class="stat-item" type="button" data-stat-filter="public" onclick="applyAdminStatFilter('public')" aria-label="공개 항목만 보기"><div class="stat-num" id="stat-public" style="color:var(--green)">0</div><div class="stat-label">공개</div></button>
+        <button class="stat-item" type="button" data-stat-filter="check" onclick="applyAdminStatFilter('check')" aria-label="확인 필요 항목만 보기"><div class="stat-num" id="stat-check" style="color:var(--amber)">0</div><div class="stat-label">확인필요</div></button>
+        <button class="stat-item" type="button" data-stat-filter="hidden" onclick="applyAdminStatFilter('hidden')" aria-label="비공개 항목만 보기"><div class="stat-num" id="stat-hidden" style="color:var(--red)">0</div><div class="stat-label">비공개</div></button>
+        <button class="stat-item" type="button" data-stat-filter="ramp" onclick="applyAdminStatFilter('ramp')" aria-label="경사로 항목만 보기"><div class="stat-num" id="stat-ramp" style="color:var(--green)">0</div><div class="stat-label">경사로</div></button>
+        <button class="stat-item" type="button" data-stat-filter="braille" onclick="applyAdminStatFilter('braille')" aria-label="점자메뉴판 항목만 보기"><div class="stat-num" id="stat-braille" style="color:var(--blue)">0</div><div class="stat-label">점자</div></button>
+        <button class="stat-item" type="button" data-stat-filter="access" onclick="applyAdminStatFilter('access')" aria-label="접근성 좋은 상점만 보기"><div class="stat-num" id="stat-access" style="color:#7A5600">0</div><div class="stat-label">접근성</div></button>
       </div>
 
       <!-- 상세 팝업 -->
@@ -598,6 +611,7 @@ let myLocationOverlay = null;
 let activeInfoWindow = null;
 let panelOpen     = true;
 let adminUnlocked = false;
+let activeStatFilter = 'total';
 
 
 function updateFilterCounts() {
@@ -915,6 +929,9 @@ function onSearch() {
 
     // 상태 (관리자)
     if (status && p.status !== status) return false;
+    if (activeStatFilter === 'public' && p.status !== '공개 가능') return false;
+    if (activeStatFilter === 'check' && p.status !== '확인 필요') return false;
+    if (activeStatFilter === 'hidden' && !(p.status && p.status.includes('비공개'))) return false;
 
     // 배리어프리 필터
     if (currentFilter === 'ramp'    && !p.hasRamp)    return false;
@@ -928,10 +945,12 @@ function onSearch() {
   renderList();
   renderMarkers();
   updateStats();
+  updateStatActiveStates();
 }
 
 function setFilter(f) {
   currentFilter = f;
+  activeStatFilter = 'total';
   document.querySelectorAll('.filter-chip').forEach(c => {
     c.className = 'filter-chip';
   });
@@ -940,6 +959,35 @@ function setFilter(f) {
   if (chip) chip.className = 'filter-chip active-' + chipKey;
   updatePressedStates();
   onSearch();
+}
+
+function applyAdminStatFilter(filter) {
+  activeStatFilter = filter;
+  const statusSelect = document.getElementById('status-select');
+  if (statusSelect) statusSelect.value = '';
+
+  if (['ramp', 'braille', 'access'].includes(filter)) {
+    currentFilter = filter;
+    document.querySelectorAll('.filter-chip').forEach(c => { c.className = 'filter-chip'; });
+    const chip = document.getElementById('chip-' + filter);
+    if (chip) chip.className = 'filter-chip active-' + filter;
+    updatePressedStates();
+    onSearch();
+  } else {
+    currentFilter = 'all';
+    document.querySelectorAll('.filter-chip').forEach(c => { c.className = 'filter-chip'; });
+    const chip = document.getElementById('chip-all');
+    if (chip) chip.className = 'filter-chip active-all';
+    updatePressedStates();
+    onSearch();
+  }
+}
+
+function updateStatActiveStates() {
+  document.querySelectorAll('.stat-item').forEach(item => {
+    item.classList.toggle('active', item.dataset.statFilter === activeStatFilter);
+    item.setAttribute('aria-pressed', String(item.dataset.statFilter === activeStatFilter));
+  });
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1133,8 +1181,14 @@ function setMode(mode) {
   }
 
   currentMode = mode;
+  activeStatFilter = 'total';
+  currentFilter = 'all';
+  const statusSelect = document.getElementById('status-select');
+  if (statusSelect) statusSelect.value = '';
   document.getElementById('btn-public').classList.toggle('active', mode === 'public');
   document.getElementById('btn-admin').classList.toggle('active', mode === 'admin');
+  document.querySelectorAll('.filter-chip').forEach(c => { c.className = 'filter-chip'; });
+  document.getElementById('chip-all')?.classList.add('active-all');
   updatePressedStates();
 
   // 관리자 전용 UI 토글
